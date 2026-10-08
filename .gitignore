@@ -225,4 +225,13 @@ CLAUDE.md
 
 # Datasets
 dataset/raw/BCICIV_2a_gdf/
+dataset/raw/true_labels/
 !.gitkeep
+dataset/processed/
+dataset/yolo/
+
+# Training outputs and predictions
+results/runs/
+results/predictions/
+*.pt
+*.pth

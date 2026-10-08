@@ -1,0 +1,50 @@
+# Signal preprocessing and time-frequency parameters (CONCEPT §4.2-4.4, DATA §5).
+
+paths:
+  gdf_dir: dataset/raw/BCICIV_2a_gdf
+  labels_dir: dataset/raw/true_labels
+  processed_dir: dataset/processed
+
+subjects: [A01, A02, A03, A04, A05, A06, A07, A08, A09]
+sessions: [T, E]
+sfreq: 250
+
+bandpass:
+  l_freq: 4.0
+  h_freq: 40.0
+
+# Trial is rejected if a 1023 annotation onset lies in [cue + start, cue + end].
+rejection_window_s: [-2.5, 0.5]
+
+epoch:
+  tmin: -1.5
+  tmax: 5.75
+
+laplacian:
+  C5: [C3, FC3, CP3]
+  C3: [FC3, C5, C1, CP3]
+  Cz: [FCz, C1, C2, CPz]
+  C4: [FC4, C2, C6, CP4]
+  C6: [C4, FC4, CP4]
+
+tfr:
+  fmin: 4
+  fmax: 40
+  fstep: 1
+  n_cycles_divisor: 2  # n_cycles = freqs / 2
+
+crop:
+  tmin: -1.0
+  tmax: 5.5
+
+baseline:
+  tmin: -1.0
+  tmax: 0.0
+
+smoothing:
+  sigma: null  # Gaussian sigma (freq bins, time samples); set in Phase 1
+
+render:
+  cmap: RdBu_r
+  vmin: -60.0
+  vmax: 60.0

@@ -1,0 +1,29 @@
+# Auto-labeling parameters (CONCEPT §5.1, §5.4). Fixed across all experiments.
+
+erd:
+  threshold_pct: -20.0  # value <= threshold
+  band_hz: [8, 30]
+  window_s: [0.5, 4.0]
+  valid_panels:
+    ERD_left_hand: [C4]
+    ERD_right_hand: [C3]
+    ERD_feet: [Cz]
+    ERD_tongue: [C5, C6]
+
+ers:
+  threshold_pct: 20.0  # value >= threshold
+  band_hz: [13, 30]
+  window_s: [4.0, 5.5]
+  valid_panels: [C5, C3, Cz, C4, C6]
+
+connectivity: 4
+min_duration_s: 0.2
+min_bandwidth_hz: 2.0
+
+split:
+  val_fraction: 0.2
+  seed: 0
+
+qc:
+  n_images: 50
+  seed: 0
