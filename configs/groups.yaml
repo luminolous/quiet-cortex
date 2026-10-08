@@ -1,0 +1,33 @@
+# Option B (Phase 2): one image = mean power of k trials with the same cue, subject, session, and split.
+# Labels: configs/autolabel.yaml (location classes, session_db z-score, largest component, no dominance).
+# Images show the same z map the labels are computed from (see `render`).
+
+autolabel_config: configs/autolabel.yaml
+seed: 0
+
+k: 5            # selected with the null test (see .agents/PROGRESS.md)
+zscore_k: 3.0   # selected with the null test
+n_groups:       # random distinct k-subsets per subject x cue class x split
+  train: 50
+  val: 10
+  test: 50
+drop_classes: []  # location classes that fail the null test (excluded from the datasets)
+
+render:  # rendered z map (replaces the +-60 % scale of CONCEPT §4.4)
+  cmap: RdBu_r
+  vmin: -4.0
+  vmax: 4.0
+
+yolo_dir: dataset/yolo
+output_prefix: kavg  # results/tables/<prefix>_*.csv, results/figures/<prefix>_examples.png
+
+null_test:
+  sessions: [T]
+  k_values: [5]
+  z_values: [3.0]
+  surrogate_seed: 1
+  ratio_min: 3.0
+  output: kavg_label_null_test.csv  # earlier run with dominance: kavg_dom_label_null_test.csv
+
+examples: {split: train, n_per_class: 5, seed: 0}
+qc: {n_images: 50, seed: 0}

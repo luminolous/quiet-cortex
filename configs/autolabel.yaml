@@ -1,14 +1,46 @@
-# Auto-labeling parameters (CONCEPT §5.1, §5.4). Fixed across all experiments.
+# Auto-labeling parameters. Fixed across all experiments.
+# Phase 2 decisions (deviate from CONCEPT §5.1 and §5.4, see .agents/PROGRESS.md): classes are defined by
+# event location (cue-agnostic) and boxes come from the strict rule below (z-score of session-level dB power,
+# min 0.5 s, largest component per panel). The cue is never used for labels. Contralateral dominance was
+# removed (labels = every significant ERD that is visible); lateralization is handled in E5 decoding.
+# Images are k-trial power averages built by src/groups.py (configs/groups.yaml), which sets zscore_k.
+# CONCEPT rules are reproduced by: class_mode cue, threshold_mode percent, min_duration_s 0.2,
+# max_components_per_panel null, dominance.enabled false.
+
+# location: ERD class = erd.location_classes[panel] (cue-agnostic).
+# cue:      ERD class = cue class, boxes outside erd.valid_panels[cue] are flagged out_of_panel (CONCEPT).
+class_mode: location
+
+preprocess_config: configs/preprocess.yaml
+yolo_dir: dataset/yolo
+
+# percent: ERD if value <= erd.threshold_pct, ERS if value >= ers.threshold_pct (CONCEPT).
+# zscore:  z = (value - mean_b) / sd_b, with mean_b and sd_b taken over the baseline window of all
+#          kept trials of the same subject-session, per panel and frequency (no labels used).
+#          ERD if z <= -zscore_k, ERS if z >= +zscore_k.
+# zscore_space: "percent" or "db" (10 log10(1 + % / 100)) z-score the per-trial baseline-corrected map;
+#               "session_db" z-scores 10 log10(smoothed absolute power) without per-trial correction, so
+#               baseline and post-cue values share one distribution (recomputed from the GDF files).
+threshold_mode: zscore
+zscore_k: 2.5
+zscore_space: session_db
+baseline_window_s: [-1.0, 0.0]
 
 erd:
   threshold_pct: -20.0  # value <= threshold
   band_hz: [8, 30]
   window_s: [0.5, 4.0]
-  valid_panels:
-    ERD_left_hand: [C4]
-    ERD_right_hand: [C3]
-    ERD_feet: [Cz]
-    ERD_tongue: [C5, C6]
+  location_classes:  # class_mode location
+    C4: ERD_C4
+    C3: ERD_C3
+    Cz: ERD_Cz
+    C5: ERD_lateral
+    C6: ERD_lateral
+  valid_panels:  # class_mode cue
+    left_hand: [C4]
+    right_hand: [C3]
+    feet: [Cz]
+    tongue: [C5, C6]
 
 ers:
   threshold_pct: 20.0  # value >= threshold
@@ -17,8 +49,20 @@ ers:
   valid_panels: [C5, C3, Cz, C4, C6]
 
 connectivity: 4
-min_duration_s: 0.2
+min_duration_s: 0.5
 min_bandwidth_hz: 2.0
+max_components_per_panel: 1  # null = keep all; 1 = largest component (by area) per panel and rule
+
+# Contralateral dominance: an ERD box is kept only if the mean value inside the box on its panel is
+# lower (stronger ERD) than the mean over its homolog panels in the same time-frequency rectangle.
+dominance:
+  enabled: false
+  homologs:
+    C3: [C4]
+    C4: [C3]
+    Cz: [C3, C4]
+    C5: [C3]
+    C6: [C4]
 
 split:
   val_fraction: 0.2

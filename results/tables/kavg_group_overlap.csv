@@ -1,0 +1,4 @@
+split,n_groups,n_unique,pool_min,pool_median,log10_possible_min,mean_pair_overlap,max_pair_overlap,uses_per_trial_mean
+train,1800,1800,39,53.0,5.76,0.097,0.8,4.873
+val,360,360,10,13.0,2.401,0.387,0.8,3.865
+test,1800,1800,53,68.0,6.458,0.077,0.8,3.836

@@ -172,8 +172,16 @@ def erd_maps(lap: np.ndarray, cfg: dict[str, Any], class_ids: np.ndarray | None 
     return np.concatenate(maps), class_power
 
 
-def process_file(subject: str, session: str, cfg: dict[str, Any], max_trials: int | None = None) -> pd.DataFrame:
-    """Process one GDF file: save one ERD map per kept trial and return its metadata rows."""
+def load_laplacian_epochs(subject: str, session: str, cfg: dict[str, Any], max_trials: int | None = None
+                          ) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray]:
+    """GDF -> (all cue rows, kept rows, Laplacian epochs of kept trials (n, 5, n_times))."""
+    meta, kept, epochs, ch_names = load_bandpassed_epochs(subject, session, cfg, max_trials)
+    return meta, kept, laplacian(epochs, ch_names, cfg["laplacian"])
+
+
+def load_bandpassed_epochs(subject: str, session: str, cfg: dict[str, Any], max_trials: int | None = None
+                           ) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray, list[str]]:
+    """GDF -> (all cue rows, kept rows, band-passed 22-channel epochs of kept trials, channel names)."""
     name = f"{subject}{session}"
     raw = load_raw(resolve(cfg["paths"]["gdf_dir"]) / f"{name}.gdf", cfg["sfreq"])
     meta = find_trials(raw, session, load_classlabel(resolve(cfg["paths"]["labels_dir"]), name),
@@ -182,12 +190,18 @@ def process_file(subject: str, session: str, cfg: dict[str, Any], max_trials: in
     data = raw.get_data()
     if np.isnan(data).any():
         raise ValueError(f"{name}: NaN in filtered signal")
-
     kept = meta[~meta["rejected"]]
     if max_trials is not None:
         kept = kept.head(max_trials)
     epochs = extract_epochs(data, cfg["sfreq"], kept["cue_onset_s"].to_numpy(), cfg["epoch"]["tmin"], cfg["epoch"]["tmax"])
-    maps, class_power = erd_maps(laplacian(epochs, raw.ch_names, cfg["laplacian"]), cfg, kept["class_id"].to_numpy())
+    return meta, kept, epochs, raw.ch_names
+
+
+def process_file(subject: str, session: str, cfg: dict[str, Any], max_trials: int | None = None) -> pd.DataFrame:
+    """Process one GDF file: save one ERD map per kept trial and return its metadata rows."""
+    name = f"{subject}{session}"
+    meta, kept, lap = load_laplacian_epochs(subject, session, cfg, max_trials)
+    maps, class_power = erd_maps(lap, cfg, kept["class_id"].to_numpy())
 
     processed = resolve(cfg["paths"]["processed_dir"])
     out_dir = processed / "erd" / name

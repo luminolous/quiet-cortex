@@ -1,0 +1,13 @@
+split,class_name,kept,out_of_panel,not_dominant,out_of_panel_pct,size_filtered_all_classes
+test,ERD_C3,338,0,46,0.0,2755
+test,ERD_C4,295,0,36,0.0,2755
+test,ERD_Cz,136,0,32,0.0,2755
+test,ERD_lateral,201,0,72,0.0,2755
+train,ERD_C3,213,0,9,0.0,2147
+train,ERD_C4,159,0,20,0.0,2147
+train,ERD_Cz,102,0,2,0.0,2147
+train,ERD_lateral,239,0,11,0.0,2147
+val,ERD_C3,57,0,2,0.0,467
+val,ERD_C4,50,0,6,0.0,467
+val,ERD_Cz,26,0,2,0.0,467
+val,ERD_lateral,47,0,10,0.0,467

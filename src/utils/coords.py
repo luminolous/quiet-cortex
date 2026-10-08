@@ -11,9 +11,11 @@ F_MIN, F_MAX = 4.0, 40.0  # Hz
 IMG = 640  # image width and height in pixels
 PANEL_H = IMG // len(PANEL_ORDER)  # 128 px per panel
 
-CLASSES_5 = ["ERD_left_hand", "ERD_right_hand", "ERD_feet", "ERD_tongue", "ERS_rebound"]
-CLASSES_2 = ["ERD_left_hand", "ERD_right_hand"]
-MI_CLASSES = CLASSES_5[:4]  # cue classes; index = class_id = classlabel - 1
+# Detection classes are defined by event location, not by the cue (Phase 2 decision, deviates from
+# CONCEPT §5.1). Index i of the first four matches cue class i (C4 <-> left hand, C3 <-> right hand, ...).
+CLASSES_5 = ["ERD_C4", "ERD_C3", "ERD_Cz", "ERD_lateral", "ERS_rebound"]
+CLASSES_2 = CLASSES_5[:2]
+MI_CLASSES = ["left_hand", "right_hand", "feet", "tongue"]  # cue classes; index = class_id = classlabel - 1
 
 
 def t_to_x(t: float) -> float:

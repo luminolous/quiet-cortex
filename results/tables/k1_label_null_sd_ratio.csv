@@ -1,0 +1,5 @@
+mode,data,sd_post_over_sd_base
+session_db,real,0.922
+session_db,surrogate,0.933
+trial_db,real,2.4
+trial_db,surrogate,2.036

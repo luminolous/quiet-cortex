@@ -1,0 +1,38 @@
+# Auto-label variant diagnosis (Phase 2): `python -m src.autolabel --diagnose configs/autolabel_variants.yaml`.
+# Session T only (train + val); session E is never used to choose a variant.
+
+base_config: configs/autolabel.yaml
+# The diagnosis ran before the Phase 2 decision; these overrides restore the CONCEPT rules as the base.
+base_overrides:
+  class_mode: cue
+  threshold_mode: percent
+  zscore_space: percent
+  min_duration_s: 0.2
+  max_components_per_panel: null
+  dominance: {enabled: false}
+sessions: [T]
+noise_window_s: [-1.0, 0.0]  # pixels beyond +-20 % here count as single-trial noise
+examples: {split: train, n_per_class: 5, seed: 0}
+
+smoothing:
+  s_phase1: {sigma_hz: 2.0, sigma_s: 0.4}   # current preprocess.yaml
+  s_150ms: {sigma_hz: 1.5, sigma_s: 0.15}   # user request, Phase 2
+
+_strict: &strict {min_duration_s: 0.5, max_components_per_panel: 1}
+
+variants:
+  V0_concept:  {smoothing: s_phase1}
+  V1_pct:      {smoothing: s_150ms, overrides: {<<: *strict}}
+  V2_pct_dom:  {smoothing: s_150ms, overrides: {<<: *strict, dominance: {enabled: true}}}
+  V3_z2:       {smoothing: s_150ms, overrides: {<<: *strict, threshold_mode: zscore, zscore_k: 2.0}}
+  V4_z2.5:     {smoothing: s_150ms, overrides: {<<: *strict, threshold_mode: zscore, zscore_k: 2.5}}
+  V5_z3:       {smoothing: s_150ms, overrides: {<<: *strict, threshold_mode: zscore, zscore_k: 3.0}}
+  V6_z2_dom:   {smoothing: s_150ms, overrides: {<<: *strict, threshold_mode: zscore, zscore_k: 2.0, dominance: {enabled: true}}}
+  V7_z2.5_dom: {smoothing: s_150ms, overrides: {<<: *strict, threshold_mode: zscore, zscore_k: 2.5, dominance: {enabled: true}}}
+  V8_z3_dom:   {smoothing: s_150ms, overrides: {<<: *strict, threshold_mode: zscore, zscore_k: 3.0, dominance: {enabled: true}}}
+  V9_zdb2:      {smoothing: s_150ms, overrides: {<<: *strict, threshold_mode: zscore, zscore_space: db, zscore_k: 2.0}}
+  V10_zdb2.5:   {smoothing: s_150ms, overrides: {<<: *strict, threshold_mode: zscore, zscore_space: db, zscore_k: 2.5}}
+  V11_zdb3:     {smoothing: s_150ms, overrides: {<<: *strict, threshold_mode: zscore, zscore_space: db, zscore_k: 3.0}}
+  V12_zdb2_dom:   {smoothing: s_150ms, overrides: {<<: *strict, threshold_mode: zscore, zscore_space: db, zscore_k: 2.0, dominance: {enabled: true}}}
+  V13_zdb2.5_dom: {smoothing: s_150ms, overrides: {<<: *strict, threshold_mode: zscore, zscore_space: db, zscore_k: 2.5, dominance: {enabled: true}}}
+  V14_zdb3_dom:   {smoothing: s_150ms, overrides: {<<: *strict, threshold_mode: zscore, zscore_space: db, zscore_k: 3.0, dominance: {enabled: true}}}
