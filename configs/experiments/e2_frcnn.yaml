@@ -1,0 +1,14 @@
+# E2 Faster R-CNN (CONCEPT §8.2): torchvision ResNet50-FPN v2, COCO weights, no augmentation.
+run_id: e2_frcnn
+experiment: E2
+model: frcnn
+data: configs/data_5class.yaml
+seed: 0
+train:
+  epochs: 20
+  batch: 4
+  lr: 0.005
+  momentum: 0.9
+  weight_decay: 0.0001
+  imgsz: 640  # min_size = max_size
+  eval_every: 1  # epochs between validation mAP evaluations (best checkpoint by val mAP@0.5)

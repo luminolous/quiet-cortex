@@ -1,0 +1,9 @@
+# CSP + LDA decoding baseline (CONCEPT §6.3), evaluated per 5-trial test group (E5).
+run_id: csp_lda
+experiment: E5
+model: csp_lda
+csp_lda:
+  band_hz: [8, 30]
+  window_s: [0.5, 2.5]
+  n_components: 8
+  reg: null

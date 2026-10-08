@@ -1,0 +1,5 @@
+# Threshold detector on the 2-class setting (ERD_C4, ERD_C3).
+run_id: threshold_2class
+experiment: E3-reference
+model: threshold
+data: configs/data_2class.yaml

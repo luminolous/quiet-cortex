@@ -1,0 +1,6 @@
+run_id,split,class_name,class_id,ap50,ap50_95,precision,recall,tp,fp,fn
+threshold,val,ERD_C4,0,1.0,1.0,1.0,1.0,53,0,0
+threshold,val,ERD_C3,1,1.0,1.0,1.0,1.0,61,0,0
+threshold,val,ERD_Cz,2,1.0,1.0,1.0,1.0,43,0,0
+threshold,val,ERD_lateral,3,1.0,1.0,1.0,1.0,62,0,0
+threshold,val,ERS_rebound,4,1.0,1.0,1.0,1.0,90,0,0

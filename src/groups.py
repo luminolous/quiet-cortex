@@ -217,11 +217,14 @@ def write_labels(path, boxes: pd.DataFrame, classes: list[str]) -> None:
 
 
 def qc_kit(groups: pd.DataFrame, boxes: pd.DataFrame, image_dir, cfg: dict[str, Any]) -> None:
-    """Random train images with at least one box (seed fixed): overlays + an empty verdict sheet."""
-    from src.utils.viz import draw_boxes
+    """Random train images with at least one box (seed fixed): annotated overlays + an empty verdict sheet."""
+    from src.utils.viz import qc_figure
 
     out = resolve("results/qc")
     out.mkdir(parents=True, exist_ok=True)
+    sheet_path = out / "qc_sheet.csv"
+    if sheet_path.exists() and (pd.read_csv(sheet_path, keep_default_na=False)["verdict"] != "").any():
+        raise FileExistsError(f"{sheet_path} already holds verdicts; move it away before regenerating the QC kit")
     for f in out.glob("*.png"):
         f.unlink()
     kept = boxes[(boxes["status"] == "kept") & (boxes["split"] == "train")]
@@ -233,11 +236,12 @@ def qc_kit(groups: pd.DataFrame, boxes: pd.DataFrame, image_dir, cfg: dict[str, 
         b = kept[(kept["subject"] == key.subject) & (kept["session"] == key.session)
                  & (kept["trial_idx"] == key.trial_idx)]
         img = np.asarray(Image.open(image_dir / "train" / f"{g.image}.png").convert("RGB"))
-        draw_boxes(img, b, title=f"{g.image}  cue: {g.class_name}").save(out / f"{g.image}.png")
+        qc_figure(img, b, f"{g.image}  (mean of {len(g.trials.split(';'))} trials, cue: {g.class_name})",
+                  out / f"{g.image}.png")
         for i, bb in enumerate(b.itertuples()):
             sheet.append({"image": f"{g.image}.png", "box_idx": i, "class": bb.class_name, "channel": bb.channel,
                           "t_on": bb.t_on, "t_off": bb.t_off, "f_low": bb.f_low, "f_high": bb.f_high,
-                          "verdict": ""})
+                          "z_mean": round(bb.score, 2), "verdict": "", "claude_note": "", "reviewer": ""})
     pd.DataFrame(sheet).to_csv(out / "qc_sheet.csv", index=False)
 
 
@@ -316,6 +320,7 @@ def main() -> None:
     parser.add_argument("--config", default="configs/groups.yaml")
     parser.add_argument("--null-test", action="store_true")
     parser.add_argument("--build", action="store_true", help="build the YOLO datasets with the selected k and z")
+    parser.add_argument("--qc", action="store_true", help="redraw the QC kit from the built dataset")
     args = parser.parse_args()
 
     setup_logging()
@@ -329,6 +334,11 @@ def main() -> None:
         log.info("null test:\n%s", res[["k", "z"] + [c for c in res.columns if c.endswith("_ratio")]].to_string())
     if args.build:
         build(gcfg, acfg, pcfg, meta)
+    if args.qc:
+        out = resolve(pcfg["paths"]["processed_dir"]) / "groups"
+        groups = pd.read_csv(out / f"groups_k{gcfg['k']}.csv")
+        boxes = pd.read_csv(out / f"boxes_k{gcfg['k']}.csv")
+        qc_kit(groups, boxes, resolve(gcfg["yolo_dir"]) / "5class" / "images", gcfg["qc"])
 
 
 if __name__ == "__main__":
