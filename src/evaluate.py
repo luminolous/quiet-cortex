@@ -331,18 +331,42 @@ def evaluate_run(run_id: str, split: str, predict: bool, run_cfg: dict[str, Any]
     return {**row, "per_class": det["per_class"], "confusion": cm, "decoding": dec}
 
 
+E1_RUNS = ["e1_baseline", "e1_lr1e-3", "e1_batch32", "e1_imgsz512", "e1_ep50", "e1_adamw"]
+
+
+def e1_table() -> pd.DataFrame:
+    """E1 table (validation) from all_runs.csv; best run = highest mAP@0.5, ties broken by mAP@0.5:0.95."""
+    runs = pd.read_csv(resolve("results/tables/all_runs.csv"))
+    runs = runs[(runs["split"] == "val") & runs["run_id"].isin(E1_RUNS)].set_index("run_id")
+    missing = [r for r in E1_RUNS if r not in runs.index]
+    if missing:
+        log.warning("E1 runs not evaluated yet: %s", missing)
+    t = runs.reindex([r for r in E1_RUNS if r in runs.index])[
+        ["map50", "map50_95", "precision", "recall", "f1", "epochs_trained", "train_time_min", "notes"]]
+    t.insert(0, "change", [load_config(f"configs/experiments/{r}.yaml").get("change", "") for r in t.index])
+    best = t.sort_values(["map50", "map50_95"], ascending=False).index[0]
+    t["selected"] = t.index == best
+    t = t.reset_index()
+    t.to_csv(resolve("results/tables/e1_hyperparams.csv"), index=False)
+    return t
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--run", required=True, help="run_id (configs/experiments/<run_id>.yaml)")
+    parser.add_argument("--run", help="run_id (configs/experiments/<run_id>.yaml)")
     parser.add_argument("--split", default="val", choices=["val", "test"])
     parser.add_argument("--predict", action="store_true", help="run inference with the run's best weights first")
     parser.add_argument("--config", help="experiment config (default: configs/experiments/<run>.yaml)")
     parser.add_argument("--notes", default="")
+    parser.add_argument("--table", choices=["e1"], help="derive an experiment table from all_runs.csv")
     args = parser.parse_args()
 
     setup_logging()
-    cfg = load_config(args.config or f"configs/experiments/{args.run}.yaml")
-    evaluate_run(args.run, args.split, args.predict, cfg, args.notes)
+    if args.run:
+        cfg = load_config(args.config or f"configs/experiments/{args.run}.yaml")
+        evaluate_run(args.run, args.split, args.predict, cfg, args.notes)
+    if args.table == "e1":
+        log.info("E1 (val):\n%s", e1_table().to_string(index=False))
 
 
 if __name__ == "__main__":

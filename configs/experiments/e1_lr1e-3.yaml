@@ -1,7 +1,7 @@
-# E1 baseline (CONCEPT §8.1): YOLO11n, 5 classes, all augmentation off.
-run_id: e1_baseline
+# E1 one-factor-at-a-time (CONCEPT §8.2): lr0 = 1e-3; everything else as e1_baseline.
+run_id: e1_lr1e-3
 experiment: E1
-change: '-'
+change: lr0 = 1e-3
 model: yolo11n
 data: configs/data_5class.yaml
 seed: 0
@@ -11,6 +11,6 @@ train:
   imgsz: 640
   batch: 16
   optimizer: SGD
-  lr0: 0.01
+  lr0: 0.001
   momentum: 0.937
   weight_decay: 0.0005

@@ -1,14 +1,14 @@
-# E1 baseline (CONCEPT §8.1): YOLO11n, 5 classes, all augmentation off.
-run_id: e1_baseline
+# E1 one-factor-at-a-time (CONCEPT §8.2): imgsz = 512; everything else as e1_baseline.
+run_id: e1_imgsz512
 experiment: E1
-change: '-'
+change: imgsz = 512
 model: yolo11n
 data: configs/data_5class.yaml
 seed: 0
 train:
   epochs: 100
   patience: 20
-  imgsz: 640
+  imgsz: 512
   batch: 16
   optimizer: SGD
   lr0: 0.01

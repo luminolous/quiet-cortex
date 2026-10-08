@@ -1,0 +1,2 @@
+run_id,change,map50,map50_95,precision,recall,f1,epochs_trained,train_time_min,notes,selected
+e1_baseline,-,0.9735777974128724,0.8146311640739441,0.8324175824175825,0.9805825242718448,0.9004457652303121,100.0,28.2,,True
