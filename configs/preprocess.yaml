@@ -41,8 +41,14 @@ baseline:
   tmin: -1.0
   tmax: 0.0
 
+# Gaussian smoothing of the single-trial % map, in physical units. Chosen with the user in
+# Phase 1: sigma 1 Hz x 50 ms flagged ~46 % of baseline pixels as ERD (<= -20 %);
+# 2 Hz x 0.4 s lowers this to ~12 % while keeping the +-20 % thresholds fixed.
 smoothing:
-  sigma: null  # Gaussian sigma (freq bins, time samples); set in Phase 1
+  sigma_hz: 2.0
+  sigma_s: 0.4
+
+tfr_chunk: 48  # trials per TFR call (memory bound)
 
 render:
   cmap: RdBu_r
