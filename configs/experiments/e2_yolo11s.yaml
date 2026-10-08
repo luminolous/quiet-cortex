@@ -1,0 +1,16 @@
+# E2 (CONCEPT §8.2): YOLO11s with the best E1 configuration (e1_baseline, selected by val mAP@0.5).
+run_id: e2_yolo11s
+experiment: E2
+change: model = YOLO11s
+model: yolo11s
+data: configs/data_5class.yaml
+seed: 0
+train:
+  epochs: 100
+  patience: 20
+  imgsz: 640
+  batch: 16
+  optimizer: SGD
+  lr0: 0.01
+  momentum: 0.937
+  weight_decay: 0.0005

@@ -1,0 +1,7 @@
+true,ERD_C4,ERD_C3,ERD_Cz,ERD_lateral,ERS_rebound,background
+ERD_C4,50,0,0,0,0,3
+ERD_C3,0,57,2,0,0,2
+ERD_Cz,0,0,41,0,0,2
+ERD_lateral,0,0,0,59,0,3
+ERS_rebound,0,0,0,0,82,8
+background,4,5,11,11,11,0
