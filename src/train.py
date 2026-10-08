@@ -49,6 +49,26 @@ def run_name(cfg: dict[str, Any], smoke: bool) -> str:
 # --------------------------------------------------------------------------- YOLO
 
 
+def no_rect_val_trainer():
+    """DetectionTrainer whose validation set uses square 640 x 640 images like training.
+
+    Ultralytics builds the val set with `rect=True`, which pads our 640 x 640 images to 672 x 672 with grey
+    borders. Events at the image edge (e.g. ERS rebound at t = 5.5 s) then look different from training, and
+    the val mAP that drives early stopping and best.pt selection is biased (e1_baseline: mAP@0.5 0.823 with
+    rect vs 0.969 without; ERS AP50 0.46 vs 0.96).
+    """
+    from ultralytics.data import build_yolo_dataset
+    from ultralytics.models.yolo.detect import DetectionTrainer
+    from ultralytics.models.yolo.detect.train import unwrap_model
+
+    class NoRectValTrainer(DetectionTrainer):
+        def build_dataset(self, img_path, mode="train", batch=None):
+            gs = max(int(unwrap_model(self.model).stride.max()), 32)
+            return build_yolo_dataset(self.args, img_path, batch, self.data, mode=mode, rect=False, stride=gs)
+
+    return NoRectValTrainer
+
+
 def train_yolo(cfg: dict[str, Any], smoke: bool, workers: int) -> Path:
     """Train a YOLO11 model; returns the run directory."""
     from ultralytics import YOLO
@@ -61,7 +81,8 @@ def train_yolo(cfg: dict[str, Any], smoke: bool, workers: int) -> Path:
     if smoke:
         args.update(epochs=1, fraction=0.05, batch=8, patience=0)
     model = YOLO(YOLO_WEIGHTS[cfg["model"]])
-    model.train(data=str(resolved_data_yaml(cfg["data"], run_dir)), seed=cfg["seed"], deterministic=True,
+    model.train(trainer=no_rect_val_trainer(), data=str(resolved_data_yaml(cfg["data"], run_dir)), seed=cfg["seed"],
+                deterministic=True,
                 workers=workers, project=str(resolve(RUNS_DIR)), name=name, exist_ok=True, plots=True,
                 **YOLO_NO_AUG, **args)
     return run_dir
