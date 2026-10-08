@@ -218,3 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Agents
+CLAUDE.md
+.agents/
+
+# Datasets
+dataset/raw/BCICIV_2a_gdf/
+!.gitkeep
