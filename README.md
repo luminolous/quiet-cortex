@@ -14,7 +14,6 @@
 
 <p>
 <a href="#the-method"><b>Method</b></a> ·
-<a href="#results"><b>Results</b></a> ·
 <a href="#reproducing"><b>Reproducing</b></a> ·
 <a href="#design-notes"><b>Design notes</b></a> ·
 <a href="https://github.com/luminolous/quiet-cortex/issues"><b>Report an issue</b></a>
@@ -38,7 +37,6 @@ The short answers. Single-trial ERD failed a surrogate test, so each image avera
 ## Contents
 
 - [The method](#the-method)
-- [Results](#results)
 - [Notebooks](#notebooks)
 - [Reproducing](#reproducing)
 - [Repository layout](#repository-layout)
@@ -109,70 +107,6 @@ One evaluator (`src/evaluate.py`) reads one prediction format for every method:
 - **Baselines:** the threshold rule that generates the labels (confidence = mean |z| in the box / 4) and CSP + LDA.
 
 We select models on validation data and report test numbers once.
-
-## Results
-
-### E1: training settings (YOLO11n, validation)
-
-| Change from baseline | mAP@0.5 | mAP@0.5:0.95 | Epochs |
-|---|---|---|---|
-| none (baseline) | **0.974** | **0.815** | 100 |
-| epochs = 50 | 0.973 | 0.790 | 50 |
-| imgsz = 512 | 0.958 | 0.748 | 80 |
-| AdamW | 0.956 | 0.773 | 93 |
-| lr0 = 1e-3 | 0.954 | 0.791 | 77 |
-| batch = 32 | 0.953 | 0.813 | 100 |
-
-The baseline stays. Most differences sit within 0.02, which a 360-image validation set with overlapping groups cannot separate. Lower resolution costs box precision: mAP@0.5:0.95 drops to 0.748.
-
-### E2: architecture (test)
-
-| Model | Val mAP@0.5 | Test mAP@0.5 | Test mAP@0.5:0.95 | Precision | Recall | Onset / offset error | Training |
-|---|---|---|---|---|---|---|---|
-| Threshold rule (label generator) | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0 / 0 ms | none |
-| **YOLO11n** (selected) | **0.974** | 0.925 | 0.735 | 0.812 | 0.970 | 18 / 21 ms | 28 min |
-| YOLO11s | 0.967 | **0.937** | **0.777** | 0.806 | 0.972 | 17 / 20 ms | 49 min |
-| Faster R-CNN v2 | 0.933 | 0.837 | 0.596 | 0.695 | 0.885 | 32 / 32 ms | 114 min |
-
-YOLO11n over three seeds: test mAP@0.5 **0.927 ± 0.005**, mAP@0.5:0.95 **0.740 ± 0.011**. The threshold rule scores 1.0 because it produced the labels; read it as a ceiling.
-
-<p align="center"><img src="results/figures/confusion_e2_test.png" width="100%" alt="Test confusion matrices of YOLO11n, YOLO11s, and Faster R-CNN"></p>
-
-YOLO errors are false positives on background plus a few misses (YOLO11n: 1892 true positives, 438 false positives, 59 misses). Of the false positives without a same-class match, 236 overlap no labeled box at all and mark sub-threshold events visible in the image. Faster R-CNN swaps classes between panels, for example 87 `ERD_C4` boxes predicted as `ERD_C3`. Our hypothesis, which we have not tested: its second stage classifies RoI-pooled crops that may lose the absolute image position, and these classes are positions.
-
-### E3: two classes instead of five (test)
-
-| Setting | AP50 `ERD_C4` | AP50 `ERD_C3` | AP50:95 `ERD_C4` | AP50:95 `ERD_C3` |
-|---|---|---|---|---|
-| 5 classes | 0.965 | 0.975 | 0.836 | 0.877 |
-| 2 classes (left/right-hand groups) | 0.955 | 0.976 | 0.796 | 0.856 |
-
-Fewer classes bring no gain. With position-defined classes the hard part is finding events and their extent.
-
-### E4: noise (test)
-
-We add Gaussian white noise per trial and channel after the band-pass and before the Laplacian and the averaging, keep the clean labels, and rebuild the images.
-
-<p align="center"><img src="results/figures/e4_robustness.png" width="100%" alt="mAP versus nominal SNR for the threshold rule and YOLO11n"></p>
-
-| Model | Clean | 30 dB | 20 dB | 15 dB | 10 dB | 5 dB | 0 dB |
-|---|---|---|---|---|---|---|---|
-| Threshold rule | 1.000 | 0.895 | 0.626 | 0.429 | 0.168 | 0.031 | 0.007 |
-| YOLO11n | 0.925 | 0.859 | 0.595 | 0.396 | 0.157 | 0.037 | 0.005 |
-
-Both lose the same share of their clean score at each level, so training buys no robustness here. The small Laplacian explains the early collapse: it subtracts the signal shared by neighbouring electrodes and sums their independent noise. A nominal 10 dB per channel leaves 2.4 dB on average in the analysed 4–40 Hz signal (22.4 / 12.4 / 7.4 / 2.4 / −2.6 / −7.6 dB for the six levels).
-
-### E5: decoding the imagined movement (test, 1800 groups of 5 trials)
-
-| Method | Accuracy | Cohen's κ | No decision |
-|---|---|---|---|
-| CSP + LDA | **0.718** | **0.624** | 0 % |
-| Threshold rule | 0.203 | −0.063 | 68.2 % |
-| YOLO11n | 0.164 | −0.115 | 67.3 % |
-
-<p align="center"><img src="results/figures/e5_decoding_by_subject.png" width="85%" alt="Group decoding accuracy per subject"></p>
-
-Coverage limits the detectors: 32.7 % of groups contain an ERD box; when one is present, its panel names the right movement in 50 % (YOLO11n) to 64 % (threshold) of groups, against 25 % chance. Coverage by cue: left hand 58.9 %, right hand 46.2 %, feet 20.7 %, tongue 5.1 %. Tongue imagery raises power over the hand areas instead of lowering it at C5/C6, and feet imagery produces more beta rebound at Cz than ERD. Group accuracies describe five trials at a time and do not compare with single-trial accuracies in the literature.
 
 ## Notebooks
 
