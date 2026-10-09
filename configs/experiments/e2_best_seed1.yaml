@@ -1,0 +1,16 @@
+# Optional seed run (EXPERIMENTS §1): selected model and configuration (YOLO11n, e1_baseline) with seed 1.
+run_id: e2_best_seed1
+experiment: seeds
+change: seed = 1
+model: yolo11n
+data: configs/data_5class.yaml
+seed: 1
+train:
+  epochs: 100
+  patience: 20
+  imgsz: 640
+  batch: 16
+  optimizer: SGD
+  lr0: 0.01
+  momentum: 0.937
+  weight_decay: 0.0005

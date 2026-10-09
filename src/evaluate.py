@@ -374,7 +374,7 @@ def e2_table() -> pd.DataFrame:
     return t
 
 
-SNRS = [10, 5, 0]
+SNRS = [30, 20, 15, 10, 5, 0]  # 10 / 5 / 0 dB from CONCEPT §7.3; 30 / 20 / 15 dB added with the user (Phase 5)
 
 
 def e4_evaluate(best_run: str) -> None:
@@ -441,6 +441,31 @@ def e5_table() -> pd.DataFrame:
     return overall
 
 
+SEED_RUNS = {"e1_baseline": 0, "e2_best_seed1": 1, "e2_best_seed2": 2}
+
+
+def seeds_table() -> pd.DataFrame:
+    """Selected model trained with seeds 0 / 1 / 2: per-run metrics plus mean and std (val and test)."""
+    runs = pd.read_csv(resolve("results/tables/all_runs.csv"))
+    dec = pd.read_csv(resolve("results/tables/decoding_by_subject.csv"))
+    dec = dec[dec["subject"] == "all"].set_index(["run_id", "split"])
+    cols = ["map50", "map50_95", "precision", "recall", "f1", "onset_err_ms", "offset_err_ms"]
+    rows = []
+    for split in ("val", "test"):
+        r = runs[(runs["split"] == split) & runs["run_id"].isin(list(SEED_RUNS))].set_index("run_id")
+        if len(r) < len(SEED_RUNS):
+            log.warning("seed runs missing on %s: %s", split, sorted(set(SEED_RUNS) - set(r.index)))
+        for run in r.index:
+            rows.append({"split": split, "run_id": run, "seed": SEED_RUNS[run], **r.loc[run, cols].to_dict(),
+                         "decoding_acc": dec["accuracy"].get((run, split), float("nan"))})
+        sub = pd.DataFrame([x for x in rows if x["split"] == split and x["run_id"] in r.index])
+        for stat in ("mean", "std"):
+            rows.append({"split": split, "run_id": stat, "seed": "", **getattr(sub[cols + ["decoding_acc"]], stat)().to_dict()})
+    t = pd.DataFrame(rows)
+    t.to_csv(resolve("results/tables/seed_runs.csv"), index=False)
+    return t
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run", help="run_id (configs/experiments/<run_id>.yaml)")
@@ -448,7 +473,7 @@ def main() -> None:
     parser.add_argument("--predict", action="store_true", help="run inference with the run's best weights first")
     parser.add_argument("--config", help="experiment config (default: configs/experiments/<run>.yaml)")
     parser.add_argument("--notes", default="")
-    tables = {"e1": e1_table, "e2": e2_table, "e3": e3_table, "e4": e4_table, "e5": e5_table}
+    tables = {"e1": e1_table, "e2": e2_table, "e3": e3_table, "e4": e4_table, "e5": e5_table, "seeds": seeds_table}
     parser.add_argument("--e4", metavar="RUN", help="evaluate RUN and the threshold detector on the noisy test sets")
     parser.add_argument("--table", choices=list(tables), help="derive an experiment table from results/tables")
     args = parser.parse_args()
