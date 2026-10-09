@@ -1,4 +1,4 @@
-# Null test for the strict auto-label rule (Phase 2):
+# Null test for the strict auto-label rule on single trials:
 #   python -m src.autolabel --null-test configs/autolabel_null.yaml
 # Surrogates: Fourier phase randomization per epoch and channel after band-pass, before the Laplacian.
 # Session T only (train + val).

@@ -1,7 +1,7 @@
 """Common evaluator: detection, domain, and decoding metrics from one prediction format.
 
 Every method (YOLO, Faster R-CNN, threshold baseline) writes results/predictions/<run_id>/<split>.json
-(CONVENTIONS §4, boxes in absolute 640 x 640 pixels); this module only reads that format.
+(boxes in absolute 640 x 640 pixels); this module only reads that format.
 
 Usage:
     python -m src.evaluate --run e1_baseline --split val --predict   # predict with best weights, then evaluate
@@ -22,7 +22,7 @@ from src.utils.io import load_config, resolve, setup_logging
 
 log = logging.getLogger(__name__)
 
-CONF_THR, IOU_THR = 0.25, 0.5  # CONCEPT §7.1 (precision / recall / F1, confusion, domain, decoding)
+CONF_THR, IOU_THR = 0.25, 0.5  # for precision / recall / F1, confusion matrix, domain errors, decoding
 ALL_RUNS_COLUMNS = ["run_id", "experiment", "model", "n_classes", "split", "seed", "epochs_trained", "map50",
                     "map50_95", "precision", "recall", "f1", "onset_err_ms", "offset_err_ms", "flow_err_hz",
                     "fhigh_err_hz", "train_time_min", "notes"]
@@ -235,7 +235,7 @@ def domain_metrics(gt: Preds, preds: Preds) -> dict[str, float]:
 
 
 def decode_groups(preds: Preds, conf: float = CONF_THR) -> pd.DataFrame:
-    """Per image: predicted cue class = ERD class (0-3) with the highest summed confidence (CONCEPT §6.4)."""
+    """Per image: predicted cue class = ERD class (0-3) with the highest summed confidence."""
     info = group_info()
     rows = []
     for stem, p in preds.items():
@@ -320,7 +320,7 @@ def evaluate_run(run_id: str, split: str, predict: bool, run_cfg: dict[str, Any]
         dec.insert(0, "run_id", run_id)
     log.info("%s / %s: mAP50 %.3f, mAP50-95 %.3f, P %.3f, R %.3f", run_id, split, det["map50"], det["map50_95"],
              det["precision"], det["recall"])
-    if run_id.startswith("smoke_"):  # smoke runs are never reported (CONVENTIONS §5)
+    if run_id.startswith("smoke_"):  # smoke runs are never reported
         log.info("smoke run: results tables not updated\n%s\n%s", pd.DataFrame(pc).to_string(), cm.to_string())
         return {**row, "per_class": det["per_class"], "confusion": cm, "decoding": dec}
     upsert(tables / "all_runs.csv", row, ["run_id", "split"], ALL_RUNS_COLUMNS)
@@ -374,7 +374,7 @@ def e2_table() -> pd.DataFrame:
     return t
 
 
-SNRS = [30, 20, 15, 10, 5, 0]  # 10 / 5 / 0 dB from CONCEPT §7.3; 30 / 20 / 15 dB added with the user (Phase 5)
+SNRS = [30, 20, 15, 10, 5, 0]  # nominal per-channel SNRs (dB) of the noisy test sets
 
 
 def e4_evaluate(best_run: str) -> None:
@@ -510,7 +510,8 @@ def main() -> None:
     parser.add_argument("--predict", action="store_true", help="run inference with the run's best weights first")
     parser.add_argument("--config", help="experiment config (default: configs/experiments/<run>.yaml)")
     parser.add_argument("--notes", default="")
-    tables = {"e1": e1_table, "e2": e2_table, "e3": e3_table, "e4": e4_table, "e5": e5_table, "seeds": seeds_table}
+    tables = {"e1": e1_table, "e2": e2_table, "e3": e3_table, "e4": e4_table, "e5": e5_table, "seeds": seeds_table,
+              "per_subject": lambda: per_subject_detection(["e1_baseline", "e2_yolo11s", "e2_frcnn"], "test")}
     parser.add_argument("--e4", metavar="RUN", help="evaluate RUN and the threshold detector on the noisy test sets")
     parser.add_argument("--table", choices=list(tables), help="derive an experiment table from results/tables")
     args = parser.parse_args()

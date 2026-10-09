@@ -1,4 +1,4 @@
-# CSP + LDA decoding baseline (CONCEPT §6.3), evaluated per 5-trial test group (E5).
+# CSP + LDA decoding baseline , evaluated per 5-trial test group (E5).
 run_id: csp_lda
 experiment: E5
 model: csp_lda

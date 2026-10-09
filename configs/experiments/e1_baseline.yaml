@@ -1,4 +1,4 @@
-# E1 baseline (CONCEPT §8.1): YOLO11n, 5 classes, all augmentation off.
+# E1 baseline: YOLO11n, 5 classes, all augmentation off.
 run_id: e1_baseline
 experiment: E1
 change: '-'

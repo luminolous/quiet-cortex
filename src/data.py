@@ -1,6 +1,6 @@
 """GDF loading, preprocessing, time-frequency maps, and image rendering.
 
-Pipeline per file (DATA §5): drop EOG -> bandpass 4-40 Hz -> epoch around cues ->
+Pipeline per file: drop EOG -> bandpass 4-40 Hz -> epoch around cues ->
 small Laplacian (5 channels) -> Morlet power -> crop -> baseline % change -> smoothing.
 
 Usage:
@@ -26,7 +26,7 @@ from src.utils.io import load_config, resolve, setup_logging
 
 log = logging.getLogger(__name__)
 
-# Standard 10-20 names of the 22 EEG channels, in GDF order (DATA §3).
+# Standard 10-20 names of the 22 EEG channels, in GDF order.
 EEG_NAMES = [
     "Fz", "FC3", "FC1", "FCz", "FC2", "FC4", "C5", "C3", "C1", "Cz", "C2",
     "C4", "C6", "CP3", "CP1", "CPz", "CP2", "CP4", "P1", "Pz", "P2", "POz",
@@ -105,7 +105,7 @@ def extract_epochs(data: np.ndarray, sfreq: float, cue_onsets: np.ndarray,
 
 
 def add_white_noise(epochs: np.ndarray, snr_db: float, rng: np.random.Generator) -> np.ndarray:
-    """Gaussian white noise per epoch and channel at a given SNR (CONCEPT §7.3).
+    """Gaussian white noise per epoch and channel at a given SNR (noise-robustness experiment E4).
 
     P_noise = P_signal / 10^(SNR / 10), with P_signal the mean power of that epoch and channel.
     """
@@ -253,7 +253,7 @@ def erd_path(cfg: dict[str, Any], subject: str, session: str, trial_idx: int) ->
 
 
 def render_erd(erd: np.ndarray, cfg: dict[str, Any]) -> np.ndarray:
-    """ERD map (5, n_freqs, n_times) -> RGB uint8 (IMG, IMG, 3) image (DATA §7).
+    """Map (5, n_freqs, n_times) -> RGB uint8 (IMG, IMG, 3) image (colormap and range from cfg["render"]).
 
     Each pixel samples the map at its center with bilinear interpolation, so the
     coordinate mapping in `src.utils.coords` holds exactly.

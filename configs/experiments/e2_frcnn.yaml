@@ -1,4 +1,4 @@
-# E2 Faster R-CNN (CONCEPT §8.2): torchvision ResNet50-FPN v2, COCO weights, no augmentation.
+# E2 Faster R-CNN: torchvision ResNet50-FPN v2, COCO weights, no augmentation.
 run_id: e2_frcnn
 experiment: E2
 model: frcnn

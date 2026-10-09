@@ -1,4 +1,4 @@
-# E2 (CONCEPT §8.2): YOLO11s with the best E1 configuration (e1_baseline, selected by val mAP@0.5).
+# E2: YOLO11s with the best E1 configuration (e1_baseline, selected by val mAP@0.5).
 run_id: e2_yolo11s
 experiment: E2
 change: model = YOLO11s

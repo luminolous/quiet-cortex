@@ -1,11 +1,12 @@
-"""Threshold-based auto-labeling, train/val/test split, and YOLO dataset export (CONCEPT §5).
+"""Threshold-based auto-labeling, train/val/test split, and single-trial label diagnostics.
 
-Per trial and panel: ERD mask (8-30 Hz, 0.5-4.0 s) and ERS mask (13-30 Hz, 4.0-5.5 s) -> 4-connected
+Per map and panel: ERD mask (8-30 Hz, 0.5-4.0 s) and ERS mask (13-30 Hz, 4.0-5.5 s) -> 4-connected
 components -> bounding boxes -> size filter -> optional largest-component and dominance rules ->
-class rules -> YOLO labels. Box edges are the centers of the outermost time samples / frequency bins.
+class rules. Box edges are the centers of the outermost time samples / frequency bins. The labeling
+functions are shared with src/groups.py, which builds the k-trial YOLO datasets.
 
 Usage:
-    python -m src.autolabel --config configs/autolabel.yaml
+    python -m src.autolabel --config configs/autolabel.yaml   # split + single-trial (k = 1) labels and statistics
     python -m src.autolabel --diagnose configs/autolabel_variants.yaml   # label-variant diagnosis (session T)
     python -m src.autolabel --null-test configs/autolabel_null.yaml      # real vs surrogate labels (session T)
 """
@@ -26,7 +27,7 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 from src.data import (crop_times, erd_path, freqs_from_cfg, laplacian, load_bandpassed_epochs, load_laplacian_epochs,
-                      percent_change, render_erd, save_image, smooth, tfr_power)
+                      percent_change, render_erd, smooth, tfr_power)
 from src.utils.coords import CLASSES_2, CLASSES_5, MI_CLASSES, PANEL_ORDER, box_to_xyxy, xyxy_to_yolo
 from src.utils.io import load_config, resolve, setup_logging
 
@@ -234,29 +235,6 @@ def write_data_yaml(path: Path, root: str, classes: list[str]) -> None:
         encoding="utf-8")
 
 
-def build_datasets(meta: pd.DataFrame, boxes: pd.DataFrame, cfg: dict[str, Any], pcfg: dict[str, Any]) -> None:
-    """Render images and write the 5-class and 2-class YOLO datasets plus their data YAMLs."""
-    yolo = resolve(cfg["yolo_dir"])
-    for name in ("5class", "2class"):
-        if (yolo / name).exists():
-            shutil.rmtree(yolo / name)
-    kept_boxes = boxes[boxes["status"] == "kept"]
-    by_trial = {k: g for k, g in kept_boxes.groupby(TRIAL_KEY)}
-    empty = kept_boxes.iloc[:0]
-    trials = meta[meta["split"] != ""]
-    for r in tqdm(trials.itertuples(), total=len(trials), desc="render"):
-        stem = image_stem(r.subject, r.session, r.trial_idx)
-        img5 = yolo / "5class" / "images" / r.split / f"{stem}.png"
-        save_image(render_erd(np.load(erd_path(pcfg, r.subject, r.session, r.trial_idx)), pcfg), img5)
-        b = by_trial.get((r.subject, r.session, r.trial_idx), empty)
-        write_yolo_label(yolo / "5class" / "labels" / r.split / f"{stem}.txt", b)
-        if r.class_id < len(CLASSES_2):
-            link_or_copy(img5, yolo / "2class" / "images" / r.split / f"{stem}.png")
-            write_yolo_label(yolo / "2class" / "labels" / r.split / f"{stem}.txt", b[b["class_id"] < len(CLASSES_2)])
-    write_data_yaml(resolve("configs/data_5class.yaml"), f"{cfg['yolo_dir']}/5class", CLASSES_5)
-    write_data_yaml(resolve("configs/data_2class.yaml"), f"{cfg['yolo_dir']}/2class", CLASSES_2)
-
-
 # --------------------------------------------------------------------------- statistics
 
 
@@ -328,34 +306,6 @@ def cue_match_stats(meta: pd.DataFrame, boxes: pd.DataFrame) -> pd.DataFrame:
     per = m.groupby(["subject", "session"]).apply(agg, include_groups=False).reset_index()
     tot = m.groupby("session").apply(agg, include_groups=False).reset_index().assign(subject="all")
     return pd.concat([per, tot], ignore_index=True).round(1)
-
-
-# --------------------------------------------------------------------------- QC kit
-
-
-def qc_kit(meta: pd.DataFrame, boxes: pd.DataFrame, cfg: dict[str, Any], pcfg: dict[str, Any]) -> None:
-    """Random train images with at least one box (seed fixed): overlays + an empty verdict sheet."""
-    from src.utils.viz import draw_boxes
-
-    out = resolve("results/qc")
-    out.mkdir(parents=True, exist_ok=True)
-    for f in out.glob("*.png"):
-        f.unlink()
-    kept = boxes[(boxes["status"] == "kept") & (boxes["split"] == "train")]
-    sample = kept[TRIAL_KEY].drop_duplicates().sample(n=cfg["qc"]["n_images"], random_state=cfg["qc"]["seed"])
-    sheet = []
-    for r in sample.sort_values(["subject", "trial_idx"]).itertuples(index=False):
-        stem = image_stem(r.subject, r.session, r.trial_idx)
-        b = kept[(kept["subject"] == r.subject) & (kept["session"] == r.session) & (kept["trial_idx"] == r.trial_idx)]
-        img = render_erd(np.load(erd_path(pcfg, r.subject, r.session, r.trial_idx)), pcfg)
-        cue = meta.loc[(meta["subject"] == r.subject) & (meta["session"] == r.session)
-                       & (meta["trial_idx"] == r.trial_idx), "class_name"].iloc[0]
-        draw_boxes(img, b, title=f"{stem}  cue: {cue}").save(out / f"{stem}.png")
-        for i, bb in enumerate(b.itertuples()):
-            sheet.append({"image": f"{stem}.png", "box_idx": i, "class": bb.class_name, "channel": bb.channel,
-                          "t_on": bb.t_on, "t_off": bb.t_off, "f_low": bb.f_low, "f_high": bb.f_high,
-                          "verdict": ""})
-    pd.DataFrame(sheet).to_csv(out / "qc_sheet.csv", index=False)
 
 
 def example_grid(meta: pd.DataFrame, boxes: pd.DataFrame, pcfg: dict[str, Any], path: Path,
@@ -609,7 +559,6 @@ def null_test(null_path: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default="configs/autolabel.yaml")
-    parser.add_argument("--skip-render", action="store_true", help="only boxes, split, and statistics")
     parser.add_argument("--diagnose", metavar="VARIANTS_YAML", help="compare label variants and exit")
     parser.add_argument("--null-test", metavar="NULL_YAML", help="real vs phase-randomized surrogate labels and exit")
     args = parser.parse_args()
@@ -651,15 +600,12 @@ def main() -> None:
 
     tables = resolve("results/tables")
     tables.mkdir(parents=True, exist_ok=True)
-    label_stats(meta, boxes).to_csv(tables / "label_stats.csv", index=False)
-    discard_stats(boxes, pd.DataFrame(small)).to_csv(tables / "discarded_erd_boxes.csv", index=False)
-    cue_match_stats(meta, boxes).to_csv(tables / "cue_match_by_subject.csv", index=False)
-    example_grid(meta, boxes, pcfg, resolve("results/figures/k1_autolabel_examples.png"))
-
-    if not args.skip_render:
-        build_datasets(meta, boxes, cfg, pcfg)
-        qc_kit(meta, boxes, cfg, pcfg)
-    log.info("done")
+    prefix = (f"k1_{cfg['zscore_space']}_z{cfg['zscore_k']:g}" if cfg["threshold_mode"] == "zscore" else "k1_percent")
+    label_stats(meta, boxes).to_csv(tables / f"{prefix}_label_stats.csv", index=False)
+    discard_stats(boxes, pd.DataFrame(small)).to_csv(tables / f"{prefix}_erd_box_status.csv", index=False)
+    cue_match_stats(meta, boxes).to_csv(tables / f"{prefix}_cue_match_by_subject.csv", index=False)
+    example_grid(meta, boxes, pcfg, resolve(f"results/figures/{prefix}_examples.png"))
+    log.info("done (%s)", prefix)
 
 
 if __name__ == "__main__":

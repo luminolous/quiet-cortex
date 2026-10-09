@@ -1,4 +1,4 @@
-# E1 one-factor-at-a-time (CONCEPT §8.2): optimizer = AdamW (lr0 kept at 1e-2); everything else as e1_baseline.
+# E1 one-factor-at-a-time: optimizer = AdamW (lr0 kept at 1e-2); everything else as e1_baseline.
 run_id: e1_adamw
 experiment: E1
 change: optimizer = AdamW (lr0 kept at 1e-2)

@@ -1,4 +1,4 @@
-# Optional seed run (EXPERIMENTS §1): selected model and configuration (YOLO11n, e1_baseline) with seed 2.
+# Seed run: selected model and configuration (YOLO11n, e1_baseline) with seed 2.
 run_id: e2_best_seed2
 experiment: seeds
 change: seed = 2

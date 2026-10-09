@@ -1,4 +1,4 @@
-# Signal preprocessing and time-frequency parameters (CONCEPT §4.2-4.4, DATA §5).
+# Signal preprocessing and time-frequency parameters.
 
 paths:
   gdf_dir: dataset/raw/BCICIV_2a_gdf
@@ -41,8 +41,8 @@ baseline:
   tmin: -1.0
   tmax: 0.0
 
-# Gaussian smoothing of the single-trial % map, in physical units. Chosen with the user in
-# Phase 1: sigma 1 Hz x 50 ms flagged ~46 % of baseline pixels as ERD (<= -20 %);
+# Gaussian smoothing in physical units (applied to the power before z-scoring and rendering).
+# On single-trial % maps, sigma 1 Hz x 50 ms flagged ~46 % of baseline pixels as ERD (<= -20 %);
 # 2 Hz x 0.4 s lowers this to ~12 % while keeping the +-20 % thresholds fixed.
 smoothing:
   sigma_hz: 2.0

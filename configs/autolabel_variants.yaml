@@ -1,8 +1,8 @@
-# Auto-label variant diagnosis (Phase 2): `python -m src.autolabel --diagnose configs/autolabel_variants.yaml`.
+# Single-trial auto-label variant diagnosis: `python -m src.autolabel --diagnose configs/autolabel_variants.yaml`.
 # Session T only (train + val); session E is never used to choose a variant.
 
 base_config: configs/autolabel.yaml
-# The diagnosis ran before the Phase 2 decision; these overrides restore the CONCEPT rules as the base.
+# These overrides restore the original rule (+-20 %, cue classes) as the base of the comparison.
 base_overrides:
   class_mode: cue
   threshold_mode: percent
@@ -16,7 +16,7 @@ examples: {split: train, n_per_class: 5, seed: 0}
 
 smoothing:
   s_phase1: {sigma_hz: 2.0, sigma_s: 0.4}   # current preprocess.yaml
-  s_150ms: {sigma_hz: 1.5, sigma_s: 0.15}   # user request, Phase 2
+  s_150ms: {sigma_hz: 1.5, sigma_s: 0.15}   # lighter smoothing for comparison
 
 _strict: &strict {min_duration_s: 0.5, max_components_per_panel: 1}
 

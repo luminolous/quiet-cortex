@@ -1,4 +1,4 @@
-# E3 (CONCEPT §8.2): selected model and configuration (YOLO11n, e1_baseline) retrained on the 2-class setting.
+# E3: selected model and configuration (YOLO11n, e1_baseline) retrained on the 2-class setting.
 run_id: e3_2class
 experiment: E3
 change: data = 2 classes (ERD_C4, ERD_C3; left/right-hand groups)

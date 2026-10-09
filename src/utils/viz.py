@@ -107,7 +107,7 @@ def qc_figure(img: np.ndarray, boxes: pd.DataFrame, title: str, path) -> None:
 
 
 
-# --------------------------------------------------------------------------- result figures (Phase 6)
+# --------------------------------------------------------------------------- result figures
 
 
 def preds_frame(pred: dict, classes: list[str], conf: float = 0.25) -> tuple[pd.DataFrame, list[float]]:

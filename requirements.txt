@@ -1,5 +1,6 @@
 # Python 3.12. Install the CUDA build of torch/torchvision first (see README), then:
 #   pip install -r requirements.txt
+# Do not install albumentations: Ultralytics would apply its augmentations automatically.
 mne
 numpy
 scipy

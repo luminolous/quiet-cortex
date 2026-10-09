@@ -1,4 +1,4 @@
-# E1 one-factor-at-a-time (CONCEPT §8.2): epochs = 50; everything else as e1_baseline.
+# E1 one-factor-at-a-time: epochs = 50; everything else as e1_baseline.
 run_id: e1_ep50
 experiment: E1
 change: epochs = 50

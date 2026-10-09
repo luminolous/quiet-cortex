@@ -5,8 +5,8 @@ import pytest
 from src.utils import coords as C
 
 
-def test_concept_example():
-    """CONCEPT §5.3: right-hand ERD on C3, 0.8-3.4 s, 9-26 Hz."""
+def test_reference_example():
+    """Reference example: right-hand ERD on C3, 0.8-3.4 s, 9-26 Hz."""
     yolo = C.xyxy_to_yolo(*C.box_to_xyxy(1, 0.8, 3.4, 9.0, 26.0))
     assert yolo == pytest.approx((0.4769, 0.3250, 0.4000, 0.0944), abs=1e-3)
 

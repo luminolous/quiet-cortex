@@ -1,4 +1,4 @@
-# Threshold detector (CONCEPT §6.3): the auto-labeling rule; upper reference in E2, compared in E4/E5.
+# Threshold detector: the auto-labeling rule; upper reference in E2, compared in E4/E5.
 run_id: threshold
 experiment: E2-reference
 model: threshold

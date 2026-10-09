@@ -1,4 +1,4 @@
-# E1 one-factor-at-a-time (CONCEPT §8.2): imgsz = 512; everything else as e1_baseline.
+# E1 one-factor-at-a-time: imgsz = 512; everything else as e1_baseline.
 run_id: e1_imgsz512
 experiment: E1
 change: imgsz = 512

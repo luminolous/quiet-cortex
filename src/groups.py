@@ -1,4 +1,4 @@
-"""k-trial groups (option B, Phase 2): power averaging, labels, null test, and YOLO dataset build.
+"""k-trial groups: power averaging, labels, null test, and YOLO dataset build.
 
 One image = the mean Morlet power of k trials with the same cue, subject, session, and split (trial
 pools of train / val / test never mix). The averaged power is smoothed and converted to session-level

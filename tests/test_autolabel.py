@@ -10,7 +10,7 @@ from src.utils import coords as C
 from src.utils.io import load_config
 
 CFG_LOC = load_config("configs/autolabel.yaml")  # project rules: location classes, strict z-dB rule
-CFG = deep_update(CFG_LOC, {  # CONCEPT §5.4 rules, used by the cue-mode tests below
+CFG = deep_update(CFG_LOC, {  # original +-20 % cue rule, used by the cue-mode tests below
     "class_mode": "cue", "threshold_mode": "percent", "zscore_space": "percent", "min_duration_s": 0.2,
     "max_components_per_panel": None, "dominance": {"enabled": False}})
 PCFG = load_config("configs/preprocess.yaml")

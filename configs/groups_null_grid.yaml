@@ -1,8 +1,9 @@
+# k x z surrogate grid (with contralateral dominance):  python -m src.groups --config configs/groups_null_grid.yaml --null-test
 # One image = mean power of k trials with the same cue, subject, session, and split.
 # Labels: configs/autolabel.yaml (location classes, session_db z-score, largest component, no dominance).
 # Images show the same z map the labels are computed from (see `render`).
 
-autolabel_config: configs/autolabel.yaml
+autolabel_config: configs/autolabel_dominance.yaml
 seed: 0
 
 k: 5            # smallest k that passes the surrogate test (README, Labels)
@@ -23,11 +24,11 @@ output_prefix: kavg  # results/tables/<prefix>_*.csv, results/figures/<prefix>_e
 
 null_test:
   sessions: [T]
-  k_values: [5]
-  z_values: [3.0]
+  k_values: [5, 10]
+  z_values: [2.5, 3.0]
   surrogate_seed: 1
   ratio_min: 3.0
-  output: kavg_label_null_test.csv  # k x z grid with dominance: configs/groups_null_grid.yaml
+  output: kavg_dom_label_null_test.csv
 
 examples: {split: train, n_per_class: 5, seed: 0}
 qc: {n_images: 50, seed: 0}

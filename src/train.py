@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 RUNS_DIR = "results/runs"
 
-# Every Ultralytics augmentation is switched off (CONCEPT §6.2): pixel position and color carry physical meaning.
+# Every Ultralytics augmentation is switched off: pixel position and color carry physical meaning.
 YOLO_NO_AUG = dict(
     fliplr=0.0, flipud=0.0, mosaic=0.0, close_mosaic=0, mixup=0.0, cutmix=0.0, copy_paste=0.0,
     hsv_h=0.0, hsv_s=0.0, hsv_v=0.0, translate=0.0, scale=0.0, degrees=0.0, shear=0.0, perspective=0.0,
@@ -125,8 +125,7 @@ def collate(batch):
 def build_frcnn(num_classes: int, imgsz: int, pretrained: bool = True):
     """torchvision Faster R-CNN ResNet50-FPN v2 (COCO weights) with a new box predictor; no resize beyond imgsz.
 
-    v2 (improved torchvision recipe) is used instead of v1 because its COCO weights were already cached
-    (user decision, Phase 3).
+    v2 is the improved torchvision recipe of the same ResNet50-FPN detector.
     """
     from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2
     from torchvision.models.detection.faster_rcnn import FastRCNNPredictor

@@ -4,8 +4,8 @@ Usage:
     python -m src.baselines threshold --config configs/experiments/threshold.yaml --split val
     python -m src.baselines csp_lda --config configs/experiments/csp_lda.yaml [--subjects A01]
 
-The threshold detector applies the auto-labeling rule (CONCEPT §5.4) to the group z maps; its confidence is
-mean |z| inside the box / 4, clipped to 1 (CONCEPT §6.3). On clean data its boxes are the labels themselves,
+The threshold detector applies the auto-labeling rule to the group z maps; its confidence is mean |z|
+inside the box / 4, clipped to 1. On clean data its boxes are the labels themselves,
 so it is an upper reference for E2, not a competitor.
 """
 
@@ -16,8 +16,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.evaluate import (decoding_metrics, group_info, save_predictions, split_images, upsert)
-from src.utils.coords import MI_CLASSES
+from src.evaluate import decoding_metrics, group_info, save_predictions, split_images, upsert
 from src.utils.io import load_config, resolve, setup_logging
 
 log = logging.getLogger(__name__)
@@ -52,7 +51,7 @@ def threshold_predictions(run_cfg: dict[str, Any], split: str) -> dict[str, dict
 
 def csp_lda_decode(run_cfg: dict[str, Any], subjects: list[str] | None = None) -> pd.DataFrame:
     """Per subject: fit CSP + LDA on all kept session T trials; predict every session E test group by
-    averaging the LDA class probabilities of its trials (CONCEPT §6.3)."""
+    averaging the LDA class probabilities of its trials."""
     from mne.decoding import CSP
     from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
     from sklearn.pipeline import make_pipeline
