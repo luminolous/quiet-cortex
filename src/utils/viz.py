@@ -105,3 +105,127 @@ def qc_figure(img: np.ndarray, boxes: pd.DataFrame, title: str, path) -> None:
     fig.savefig(path, dpi=110)
     plt.close(fig)
 
+
+
+# --------------------------------------------------------------------------- result figures (Phase 6)
+
+
+def preds_frame(pred: dict, classes: list[str], conf: float = 0.25) -> tuple[pd.DataFrame, list[float]]:
+    """Prediction dict (boxes, scores, labels) -> (box DataFrame for draw_boxes, scores), filtered by confidence."""
+    keep = pred["scores"] >= conf
+    b = pred["boxes"][keep]
+    df = pd.DataFrame(b, columns=["x1", "y1", "x2", "y2"]).assign(class_name=[classes[i] for i in pred["labels"][keep]])
+    return df, pred["scores"][keep].tolist()
+
+
+def gt_vs_pred(img: np.ndarray, gt: dict, pred: dict, classes: list[str], title: str, conf: float = 0.25) -> Image.Image:
+    """Side-by-side overlays: ground truth (left) and predictions above `conf` with scores (right)."""
+    g = pd.DataFrame(gt["boxes"], columns=["x1", "y1", "x2", "y2"]).assign(class_name=[classes[i] for i in gt["labels"]])
+    p, s = preds_frame(pred, classes, conf)
+    left = draw_boxes(img, g, title=f"{title}  | ground truth")
+    right = draw_boxes(img, p, title=f"prediction (conf >= {conf})", scores=s)
+    out = Image.new("RGB", (left.width + right.width + 10, left.height), "white")
+    out.paste(left, (0, 0))
+    out.paste(right, (left.width + 10, 0))
+    return out
+
+
+def grid(tiles: list[Image.Image], n_cols: int, scale: float = 0.5) -> Image.Image:
+    w, h = tiles[0].size
+    n_rows = -(-len(tiles) // n_cols)
+    out = Image.new("RGB", (w * n_cols, h * n_rows), "white")
+    for i, t in enumerate(tiles):
+        out.paste(t, ((i % n_cols) * w, (i // n_cols) * h))
+    return out.resize((int(out.width * scale), int(out.height * scale)), Image.LANCZOS)
+
+
+def save_gif(frames: list[Image.Image], path, seconds_per_frame: float = 1.2) -> None:
+    import imageio.v2 as imageio
+
+    imageio.mimsave(path, [np.asarray(f.convert("RGB")) for f in frames], duration=seconds_per_frame, loop=0)
+
+
+def plot_training_curves(curves: dict[str, pd.DataFrame], path=None):
+    """Validation mAP@0.5 and mAP@0.5:0.95 per epoch. Each frame needs epoch, map50, map50_95."""
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.2), constrained_layout=True)
+    for name, d in curves.items():
+        axes[0].plot(d["epoch"], d["map50"], label=name, lw=1.3)
+        axes[1].plot(d["epoch"], d["map50_95"], label=name, lw=1.3)
+    for ax, t in zip(axes, ["val mAP@0.5", "val mAP@0.5:0.95"]):
+        ax.set_xlabel("epoch")
+        ax.set_ylabel(t)
+        ax.grid(alpha=0.3)
+    axes[1].legend(fontsize=8)
+    if path:
+        fig.savefig(path, dpi=120)
+    return fig
+
+
+def plot_confusions(tables: dict[str, pd.DataFrame], path=None):
+    """Confusion matrices (rows: true incl. background, cols: predicted), colored by row share."""
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, len(tables), figsize=(5.2 * len(tables), 4.6), constrained_layout=True)
+    for ax, (name, cm) in zip(np.atleast_1d(axes), tables.items()):
+        v = cm.to_numpy(dtype=float)
+        share = v / np.clip(v.sum(axis=1, keepdims=True), 1, None)
+        ax.imshow(share, cmap="Blues", vmin=0, vmax=1)
+        for i in range(v.shape[0]):
+            for j in range(v.shape[1]):
+                ax.text(j, i, int(v[i, j]), ha="center", va="center", fontsize=8,
+                        color="white" if share[i, j] > 0.6 else "black")
+        labels = [c.replace("ERD_", "").replace("ERS_", "") for c in cm.columns]
+        ax.set_xticks(range(len(labels)), labels, rotation=45, ha="right", fontsize=8)
+        ax.set_yticks(range(len(labels)), labels, fontsize=8)
+        ax.set_xlabel("predicted")
+        ax.set_ylabel("true")
+        ax.set_title(name, fontsize=10)
+    if path:
+        fig.savefig(path, dpi=120)
+    return fig
+
+
+def plot_e4(e4: pd.DataFrame, path=None):
+    """mAP@0.5 and mAP@0.5:0.95 versus nominal SNR (clean on the left)."""
+    import matplotlib.pyplot as plt
+
+    levels = [c.replace("map50_", "") for c in e4.columns if c.startswith("map50_") and not c.startswith("map50_95")]
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4), constrained_layout=True)
+    for _, r in e4.iterrows():
+        for ax, key in zip(axes, ["map50_", "map50_95_"]):
+            ax.plot(levels, [r[f"{key}{lv}"] for lv in levels], marker="o", label=r["model"])
+    for ax, t in zip(axes, ["test mAP@0.5", "test mAP@0.5:0.95"]):
+        ax.set_xlabel("noise level (nominal SNR per channel)")
+        ax.set_ylabel(t)
+        ax.set_ylim(0, 1.02)
+        ax.grid(alpha=0.3)
+    axes[0].legend(fontsize=8)
+    if path:
+        fig.savefig(path, dpi=120)
+    return fig
+
+
+def plot_pipeline(path=None):
+    """Simple block diagram of the pipeline (signal -> groups -> z map -> labels / detectors -> evaluation)."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import FancyBboxPatch
+
+    steps = ["EEG (22 ch, 250 Hz)\nband-pass 4-40 Hz\nepochs -1.5...5.75 s", "small Laplacian\nC5, C3, Cz, C4, C6",
+             "Morlet power\n4-40 Hz", "mean of 5 trials\n(same cue, subject,\nsplit)", "session z map (dB)\nsmoothing\nimage z -4...+4",
+             "auto-labels\nz <= -3 ERD / >= +3 ERS\nclass = panel", "YOLO11n / YOLO11s /\nFaster R-CNN", "common evaluator\nmAP, domain errors,\ndecoding vs CSP+LDA"]
+    fig, ax = plt.subplots(figsize=(16, 2.6))
+    ax.set_xlim(0, len(steps) * 2)
+    ax.set_ylim(0, 2)
+    ax.axis("off")
+    for i, s in enumerate(steps):
+        ax.add_patch(FancyBboxPatch((i * 2 + 0.1, 0.35), 1.7, 1.3, boxstyle="round,pad=0.05",
+                                    fc="#e8f0fb" if i < 5 else "#fdf1e3", ec="0.3"))
+        ax.text(i * 2 + 0.95, 1.0, s, ha="center", va="center", fontsize=8)
+        if i < len(steps) - 1:
+            ax.annotate("", (i * 2 + 2.1, 1.0), (i * 2 + 1.85, 1.0), arrowprops=dict(arrowstyle="->", lw=1.2))
+    fig.tight_layout()
+    if path:
+        fig.savefig(path, dpi=130)
+    return fig

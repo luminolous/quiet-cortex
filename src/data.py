@@ -114,6 +114,22 @@ def add_white_noise(epochs: np.ndarray, snr_db: float, rng: np.random.Generator)
     return epochs + rng.standard_normal(epochs.shape) * sd
 
 
+def effective_snr_db(epochs: np.ndarray, ch_names: list[str], cfg: dict[str, Any], snr_db: float, seed: int = 0
+                     ) -> float:
+    """SNR after the small Laplacian, with the added white noise restricted to the band-pass range (E4 diagnostic).
+
+    The Laplacian removes signal shared by neighbouring channels but sums their independent noise, so the
+    effective SNR of the analysed signal is lower than the nominal per-channel SNR.
+    """
+    from scipy.signal import butter, sosfiltfilt
+
+    noise = add_white_noise(epochs, snr_db, np.random.default_rng(seed)) - epochs
+    sos = butter(4, [cfg["bandpass"]["l_freq"], cfg["bandpass"]["h_freq"]], btype="band", fs=cfg["sfreq"], output="sos")
+    s = (laplacian(epochs, ch_names, cfg["laplacian"]) ** 2).mean()
+    n = (sosfiltfilt(sos, laplacian(noise, ch_names, cfg["laplacian"]), axis=-1) ** 2).mean()
+    return float(10 * np.log10(s / n))
+
+
 def laplacian(epochs: np.ndarray, ch_names: list[str], neighbors: dict[str, list[str]]) -> np.ndarray:
     """Small Laplacian x_c - mean(x_neighbors) for PANEL_ORDER channels -> (n, 5, n_times)."""
     idx = {ch: i for i, ch in enumerate(ch_names)}

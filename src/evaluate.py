@@ -441,6 +441,43 @@ def e5_table() -> pd.DataFrame:
     return overall
 
 
+def per_subject_detection(run_ids: list[str], split: str = "test") -> pd.DataFrame:
+    """mAP@0.5 / mAP@0.5:0.95 / recall per subject (subset of images) for each run -> per_subject_detection.csv."""
+    info = group_info()
+    rows = []
+    for run in run_ids:
+        preds, meta = load_predictions(run, split)
+        cfg = load_config(f"configs/experiments/{run}.yaml") if (resolve("configs/experiments") / f"{run}.yaml").exists() \
+            else {"data": "configs/data_5class.yaml"}
+        gt = ground_truth(cfg["data"], split)
+        n_cls = len(meta["classes"])
+        for subject in sorted(info["subject"].unique()):
+            stems = [s for s in gt if info.loc[s, "subject"] == subject]
+            g = {s: gt[s] for s in stems}
+            m = detection_metrics(g, {s: preds[s] for s in stems if s in preds}, n_cls)
+            rows.append({"run_id": run, "split": split, "subject": subject, "n_images": len(stems),
+                         "n_gt_boxes": int(sum(len(x["labels"]) for x in g.values())),
+                         "map50": m["map50"], "map50_95": m["map50_95"], "recall": m["recall"],
+                         "precision": m["precision"]})
+    t = pd.DataFrame(rows)
+    upsert(resolve("results/tables/per_subject_detection.csv"), t.to_dict("records"), ["run_id", "split"])
+    return t
+
+
+def image_errors(run_id: str, split: str = "test") -> pd.DataFrame:
+    """Per image: ground-truth boxes, true positives, false positives, and false negatives at CONF_THR / IOU_THR."""
+    preds, meta = load_predictions(run_id, split)
+    gt = ground_truth(load_config(f"configs/experiments/{run_id}.yaml")["data"], split)
+    info = group_info()
+    empty = {"boxes": np.zeros((0, 4)), "scores": np.zeros(0), "labels": np.zeros(0, dtype=int)}
+    rows = []
+    for s, g in gt.items():
+        pairs, fp, fn = match(g, preds.get(s, empty))
+        rows.append({"image": s, "subject": info.loc[s, "subject"], "cue": MI_CLASSES[int(info.loc[s, "class_id"])],
+                     "n_gt": len(g["labels"]), "tp": len(pairs), "fp": len(fp), "fn": len(fn)})
+    return pd.DataFrame(rows)
+
+
 SEED_RUNS = {"e1_baseline": 0, "e2_best_seed1": 1, "e2_best_seed2": 2}
 
 
