@@ -11,7 +11,7 @@ pool), test = session E (cross-session). Model selection uses validation only.
 - **Single trials cannot be labeled reliably (Q0).** With a ±20 % threshold, ERD candidates appear on every panel in ~85–97 % of trials regardless of the cue (`autolabel_variants_specificity.csv`). A z-score computed on per-trial baseline-corrected maps is inflated (post-cue / baseline SD ratio 2.4, `k1_label_null_sd_ratio.csv`). With the corrected session-level z, no class reaches 3× phase-randomized surrogates at k = 1 (C4 1.77×, C3 2.61×, Cz 1.45×, lateral 0.48×, ERS 2.17×; `k1_label_null_test.csv`).
 - **Final unit: mean power of 5 trials** (same cue, subject, split); session-level dB z map, rendered and thresholded identically (|z| ≥ 3, ≥ 0.5 s, ≥ 2 Hz, largest component per panel, class = panel). Real vs. surrogate boxes per image: C4 22.2×, C3 13.1×, Cz 16.7×, lateral 11.5×, ERS 5.3×; background 56.2 % real vs 93.5 % surrogate (`kavg_label_null_test.csv`).
 - Dataset: 1800 / 360 / 1800 images (train / val / test), background 56.1 / 57.2 / 50.7 %, 1538 / 309 / 1951 boxes (`kavg_label_stats.csv`). Mean pairwise trial overlap between groups: 9.7 % train, 38.7 % val, 7.7 % test (`kavg_group_overlap.csv`).
-- Manual QC of 98 boxes in 50 training images: 82.7 % valid, 14.3 % unsure, 3.1 % invalid; ERD_C3 / C4 / Cz ≈ 94–95 % valid, ERD_lateral 66.7 %, ERS_rebound 68.2 %; box extent "good" for 44 of 98 boxes (`results/qc/qc_sheet.csv`, `notebooks/annotation.ipynb`).
+- AI-assisted review in two passes (Claude Code first pass, AI-assisted second pass; `reviewer` column) of 98 boxes in 50 training images: 82.7 % valid, 14.3 % unsure, 3.1 % invalid; ERD_C3 / C4 / Cz ≈ 94–95 % valid, ERD_lateral 66.7 %, ERS_rebound 68.2 %; box extent "good" for 44 of 98 boxes (`results/qc/qc_sheet.csv`, `notebooks/annotation.ipynb`).
 - Cue agreement (labels never see the cue): the strongest ERD box matches the cue in 19.3 % (T) / 23.2 % (E) of groups vs. chance 7.6 % / 8.0 % (`kavg_cue_match_by_subject.csv`).
 
 ## E1 — training settings (YOLO11n, validation; `e1_hyperparams.csv`)
@@ -32,7 +32,7 @@ pool), test = session E (cross-session). Model selection uses validation only.
 
 - Weakest class on test: ERD_lateral (AP50 0.80 YOLO11n, 0.86 YOLO11s).
 - YOLO errors are almost all false positives (YOLO11n: TP 1892, FP 438, FN 59 at conf 0.25, IoU 0.5). Of 333 class-unmatched false positives, 236 do not overlap any ground-truth box (sub-threshold events not marked by the rule), 92 overlap partially (localization), 5 hit another class (`notebooks/detection_gallery.ipynb`).
-- Faster R-CNN swaps position-defined classes (e.g. 87 ERD_C4 boxes predicted as ERD_C3; `confusion/e2_frcnn_test.csv`), plausibly because its RoI classifier lacks absolute image position.
+- Faster R-CNN swaps position-defined classes (e.g. 87 ERD_C4 boxes predicted as ERD_C3; `confusion/e2_frcnn_test.csv`), possibly because its RoI classifier lacks absolute image position (hypothesis, not tested).
 - Per subject, YOLO11n test mAP@0.5 ranges 0.79–0.98 (`per_subject_detection.csv`).
 
 ## E3 — 2 vs 5 classes (test; `e3_classes.csv`)
@@ -68,6 +68,8 @@ pool), test = session E (cross-session). Model selection uses validation only.
 - Classes are defined by panel position, so classification is trivial for one-stage detectors; the task is finding events and their extent.
 - The threshold rule generates the labels, so its clean-data score is an upper reference, not a fair competitor.
 - Validation is small (360 images) with 38.7 % trial overlap between groups; model selection is noisy (seed 0 was the best of three on validation).
+- The ± over three seeds covers training randomness only: all seeds share the same groups, and test groups share 7.7 % of their trials.
+- The quality check is AI-assisted (two passes), not an expert manual rating.
 - Images average 5 trials, so decoding results describe groups of trials, not single-trial BCI performance.
 - Subjects with weak sensorimotor modulation (A02, A04, A05) contribute few or no ERD events (BCI inefficiency).
 

@@ -88,7 +88,7 @@ The labeler never reads the cue. A bilateral ERD gets a box on both panels, and 
 | Single trial, session z ≥ 2.5 | 1.8× | 2.6× | 1.5× | 0.5× | 2.2× | 62 % / 79 % |
 | **5-trial average, z ≥ 3 (final)** | **22.2×** | **13.1×** | **16.7×** | **11.5×** | **5.3×** | 56 % / 94 % |
 
-Manual review of 98 boxes in 50 random training images rated 82.7 % valid, 14.3 % unsure, and 3.1 % invalid. Hand and midline classes score 94–95 %; `ERD_lateral` (66.7 %) and `ERS_rebound` (68.2 %) are weaker, and the three invalid boxes are broadband end-of-epoch rises that look like muscle artifacts. Box extent matched the visible event for 44 of 98 boxes: the z ≥ 3 rule often marks the strongest core of a larger region.
+An AI-assisted review in two passes (Claude Code pre-filled every verdict, a second pass with an AI assistant checked and corrected it) rated 98 boxes in 50 random training images: 82.7 % valid, 14.3 % unsure, and 3.1 % invalid. Hand and midline classes score 94–95 %; `ERD_lateral` (66.7 %) and `ERS_rebound` (68.2 %) are weaker, and the three invalid boxes are broadband end-of-epoch rises that look like muscle artifacts. Box extent matched the visible event for 44 of 98 boxes: the z ≥ 3 rule often marks the strongest core of a larger region.
 
 ### Models and training
 
@@ -138,7 +138,7 @@ YOLO11n over three seeds: test mAP@0.5 **0.927 ± 0.005**, mAP@0.5:0.95 **0.740 
 
 <p align="center"><img src="results/figures/confusion_e2_test.png" width="100%" alt="Test confusion matrices of YOLO11n, YOLO11s, and Faster R-CNN"></p>
 
-YOLO errors are false positives on background plus a few misses (YOLO11n: 1892 true positives, 438 false positives, 59 misses). Of the false positives without a same-class match, 236 overlap no labeled box at all and mark sub-threshold events visible in the image. Faster R-CNN swaps classes between panels, for example 87 `ERD_C4` boxes predicted as `ERD_C3`: its second stage classifies RoI-pooled crops that carry no absolute image position, and these classes are positions.
+YOLO errors are false positives on background plus a few misses (YOLO11n: 1892 true positives, 438 false positives, 59 misses). Of the false positives without a same-class match, 236 overlap no labeled box at all and mark sub-threshold events visible in the image. Faster R-CNN swaps classes between panels, for example 87 `ERD_C4` boxes predicted as `ERD_C3`. Our hypothesis, which we have not tested: its second stage classifies RoI-pooled crops that may lose the absolute image position, and these classes are positions.
 
 ### E3: two classes instead of five (test)
 
@@ -181,7 +181,7 @@ Read them in this order. Each one imports from `src/` and ships with its outputs
 | # | Notebook | Content |
 |---|---|---|
 | 1 | [`dataset_and_erd.ipynb`](notebooks/dataset_and_erd.ipynb) | Raw signal, Laplacian, time-frequency maps, rendering, grand-average ERD/ERS per class |
-| 2 | [`annotation.ipynb`](notebooks/annotation.ipynb) | Single-trial diagnosis, surrogate tests, final labels, statistics, manual quality check |
+| 2 | [`annotation.ipynb`](notebooks/annotation.ipynb) | Single-trial diagnosis, surrogate tests, final labels, statistics, AI-assisted quality check |
 | 3 | [`results.ipynb`](notebooks/results.ipynb) | E1–E5 tables, training curves, confusion matrices, noise, decoding, per-subject results |
 | 4 | [`detection_gallery.ipynb`](notebooks/detection_gallery.ipynb) | Predictions against ground truth, failure cases, tongue imagery, one group under noise, GIFs |
 
@@ -263,7 +263,7 @@ quiet-cortex/
 ├── results/
 │   ├── tables/            every reported number (CSV)
 │   ├── figures/           figures and GIFs
-│   ├── qc/                manual review overlays and sheet
+│   ├── qc/                review overlays and verdict sheet
 │   └── summary.md
 └── dataset/               raw, processed, and YOLO data (not tracked)
 ```
@@ -283,7 +283,7 @@ Problems we hit, and what the code does about them.
 - **Ultralytics predicts a Python list as one batch.** `model.predict(list_of_paths)` ignores `batch` and ran out of GPU memory on 1800 images. `src/evaluate.py` feeds chunks of 16.
 - **Default augmentations go beyond the usual list.** Ultralytics 8.4 also enables random erasing (`erasing = 0.4`); the training code sets every augmentation parameter to zero and the run's `args.yaml` records it.
 - **Per-trial baselines inflate z.** z-scoring a map that was already normalized to each trial's own baseline underestimates the baseline variance. The labels z-score absolute dB power against the pooled baseline of a session.
-- **Location-defined classes need position.** One-stage detectors handle them; Faster R-CNN mixes up panels.
+- **Location-defined classes need position.** One-stage detectors keep the panels apart; Faster R-CNN mixes them up, possibly because its RoI classifier loses absolute position (untested).
 - **Smoke runs stay out of the tables.** Any run named `smoke_*` skips the result tables.
 
 ## Limitations
@@ -292,6 +292,8 @@ Problems we hit, and what the code does about them.
 - Position fixes the class, so the detectors face no real classification problem; they find events and their extent.
 - The threshold rule generates the labels, so its clean score is a ceiling and not a fair competitor.
 - Validation holds 360 images whose groups share 38.7 % of their trials on average. Seed 0, the selected run, was the best of three seeds on validation.
+- The ± over three seeds reflects training randomness alone: every seed sees the same groups, and test groups share 7.7 % of their trials on average, so the spread says nothing about variation across data.
+- The quality check is AI-assisted (two passes, recorded in `results/qc/qc_sheet.csv`); no expert rated the boxes by hand.
 - Decoding works on groups of five trials and does not measure single-trial BCI performance.
 - Subjects with weak sensorimotor modulation (A02, A04, A05) contribute few or no ERD events.
 
