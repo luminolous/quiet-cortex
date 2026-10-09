@@ -24,8 +24,8 @@ from tqdm import tqdm
 
 from src.autolabel import (BOX_COLUMNS, baseline_stats, cue_match_stats, deep_update, label_stats, label_values,
                            link_or_copy, phase_randomize, write_data_yaml, write_yolo_label)
-from src.data import (crop_times, freqs_from_cfg, laplacian, load_bandpassed_epochs, render_erd, save_image, smooth,
-                      tfr_power)
+from src.data import (add_white_noise, crop_times, freqs_from_cfg, laplacian, load_bandpassed_epochs, render_erd,
+                      save_image, smooth, tfr_power)
 from src.utils.coords import CLASSES_2, CLASSES_5, MI_CLASSES
 from src.utils.io import load_config, resolve, setup_logging
 
@@ -99,12 +99,18 @@ def overlap_stats(groups: pd.DataFrame, k: int) -> pd.DataFrame:
 # --------------------------------------------------------------------------- power
 
 
-def file_power(subject: str, session: str, pcfg: dict[str, Any], surrogate_rng: np.random.Generator | None = None
-               ) -> tuple[np.ndarray, np.ndarray]:
-    """(trial_idx of kept trials, cropped power (n, 5, n_freqs, n_times)); optionally phase-randomized."""
+def file_power(subject: str, session: str, pcfg: dict[str, Any], surrogate_rng: np.random.Generator | None = None,
+               noise: tuple[float, np.random.Generator] | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """(trial_idx of kept trials, cropped power (n, 5, n_freqs, n_times)).
+
+    Optionally phase-randomized (null test) or with white noise `(snr_db, rng)` added per trial and channel
+    after the band-pass and before the Laplacian (E4).
+    """
     _, kept, epochs, ch_names = load_bandpassed_epochs(subject, session, pcfg)
     if surrogate_rng is not None:
         epochs = phase_randomize(epochs, surrogate_rng)
+    if noise is not None:
+        epochs = add_white_noise(epochs, noise[0], noise[1])
     lap = laplacian(epochs, ch_names, pcfg["laplacian"])
     power = np.concatenate([tfr_power(lap[i:i + pcfg["tfr_chunk"]], pcfg).astype(np.float32)
                             for i in range(0, len(lap), pcfg["tfr_chunk"])])
@@ -312,6 +318,62 @@ def build(gcfg: dict[str, Any], acfg: dict[str, Any], pcfg: dict[str, Any], meta
     log.info("built %d groups (k=%d, z=%.1f) into %s", len(groups), k, gcfg["zscore_k"], yolo)
 
 
+# --------------------------------------------------------------------------- noisy test sets (E4)
+
+
+def noise_dir(gcfg: dict[str, Any], snr: float) -> str:
+    return f"{gcfg['yolo_dir']}/test_noise_snr{snr:g}"
+
+
+def build_noise_test(gcfg: dict[str, Any], acfg: dict[str, Any], pcfg: dict[str, Any], snr: float,
+                     subjects: list[str] | None = None) -> None:
+    """Noisy copy of the 5-class test set: same groups, images from noisy trials, labels from clean data.
+
+    Also writes the threshold detector run on the noisy z maps (`threshold_snr<snr>` predictions) and the
+    data YAML `configs/data_5class_snr<snr>.yaml` (test split only).
+    """
+    from src.autolabel import write_data_yaml
+    from src.evaluate import save_predictions
+
+    k = gcfg["k"]
+    acfg = deep_update(acfg, {"zscore_k": gcfg["zscore_k"]})
+    rcfg = dict(pcfg, render=gcfg["render"])
+    times, freqs = crop_times(pcfg), freqs_from_cfg(pcfg)
+    cls5, _ = dataset_classes(gcfg.get("drop_classes", []))
+    groups = pd.read_csv(resolve(pcfg["paths"]["processed_dir"]) / "groups" / f"groups_k{k}.csv")
+    groups = groups[groups["split"] == "test"]
+    if subjects:
+        groups = groups[groups["subject"].isin(subjects)]
+    out = resolve(noise_dir(gcfg, snr))
+    clean_labels = resolve(gcfg["yolo_dir"]) / "5class" / "labels" / "test"
+    (out / "images" / "test").mkdir(parents=True, exist_ok=True)
+    (out / "labels" / "test").mkdir(parents=True, exist_ok=True)
+    preds = {}
+    for subject, g in tqdm(list(groups.groupby("subject")), desc=f"SNR {snr:g} dB"):
+        rng = np.random.default_rng([gcfg["seed"], int(subject[1:]), int(round(snr * 10)) + 1000])
+        tidx, power = file_power(subject, "E", pcfg, noise=(snr, rng))
+        z = session_z(group_power(smooth(power, pcfg), tidx, g), times, acfg["baseline_window_s"])
+        del power
+        rows, _ = label_values(z, g, acfg, freqs, times)
+        b = pd.DataFrame(rows, columns=BOX_COLUMNS)
+        b = b[(b["status"] == "kept") & b["class_name"].isin(cls5)]
+        for zi, gr in zip(z, g.itertuples()):
+            save_image(render_erd(zi, rcfg), out / "images" / "test" / f"{gr.image}.png")
+            shutil.copy2(clean_labels / f"{gr.image}.txt", out / "labels" / "test" / f"{gr.image}.txt")
+            bg = b[b["trial_idx"] == gr.trial_idx]
+            preds[gr.image] = {"boxes": bg[["x1", "y1", "x2", "y2"]].to_numpy(dtype=float).reshape(-1, 4),
+                               "scores": np.clip(bg["score"].abs().to_numpy() / 4.0, 0, 1),
+                               "labels": bg["class_name"].map(cls5.index).to_numpy(dtype=int)}
+    path = resolve(f"configs/data_5class_snr{snr:g}.yaml")
+    write_data_yaml(path, noise_dir(gcfg, snr), cls5)
+    text = path.read_text(encoding="utf-8").replace("train: images/train\nval: images/val\n", "")
+    path.write_text(f"# Noisy test set for E4 (SNR {snr:g} dB, labels from clean data); test split only.\n" + text,
+                    encoding="utf-8")
+    if not subjects:
+        save_predictions(f"threshold_snr{snr:g}", "test", preds, cls5)
+    log.info("noisy test set SNR %g dB: %d images -> %s", snr, len(preds), out)
+
+
 # --------------------------------------------------------------------------- CLI
 
 
@@ -321,6 +383,8 @@ def main() -> None:
     parser.add_argument("--null-test", action="store_true")
     parser.add_argument("--build", action="store_true", help="build the YOLO datasets with the selected k and z")
     parser.add_argument("--qc", action="store_true", help="redraw the QC kit from the built dataset")
+    parser.add_argument("--noise-snr", type=float, nargs="*", help="build noisy test sets at these SNRs (dB), E4")
+    parser.add_argument("--subjects", nargs="*", help="limit --noise-snr to these subjects (smoke test)")
     args = parser.parse_args()
 
     setup_logging()
@@ -339,6 +403,8 @@ def main() -> None:
         groups = pd.read_csv(out / f"groups_k{gcfg['k']}.csv")
         boxes = pd.read_csv(out / f"boxes_k{gcfg['k']}.csv")
         qc_kit(groups, boxes, resolve(gcfg["yolo_dir"]) / "5class" / "images", gcfg["qc"])
+    for snr in args.noise_snr or []:
+        build_noise_test(gcfg, acfg, pcfg, snr, args.subjects)
 
 
 if __name__ == "__main__":

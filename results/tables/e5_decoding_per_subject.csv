@@ -1,0 +1,31 @@
+run_id,method,split,subject,n_groups,accuracy,kappa,no_decision_pct
+threshold,Threshold detector,test,A01,200.0,0.13,-0.16,72.0
+threshold,Threshold detector,test,A02,200.0,0.0,-0.3333333333333333,100.0
+threshold,Threshold detector,test,A03,200.0,0.485,0.3133333333333333,46.5
+threshold,Threshold detector,test,A04,200.0,0.015,-0.3133333333333333,90.5
+threshold,Threshold detector,test,A05,200.0,0.005,-0.3266666666666666,95.5
+threshold,Threshold detector,test,A06,200.0,0.105,-0.1933333333333333,78.5
+threshold,Threshold detector,test,A07,200.0,0.65,0.5333333333333333,21.0
+threshold,Threshold detector,test,A08,200.0,0.365,0.1533333333333333,57.99999999999999
+threshold,Threshold detector,test,A09,200.0,0.07,-0.24,51.5
+threshold,Threshold detector,test,all,1800.0,0.2027777777777777,-0.0629629629629629,68.16666666666666
+e1_baseline,Selected detector (e1_baseline),test,A01,200.0,0.115,-0.18,71.5
+e1_baseline,Selected detector (e1_baseline),test,A02,200.0,0.0,-0.3333333333333333,99.5
+e1_baseline,Selected detector (e1_baseline),test,A03,200.0,0.36,0.1466666666666666,46.0
+e1_baseline,Selected detector (e1_baseline),test,A04,200.0,0.015,-0.3133333333333333,89.0
+e1_baseline,Selected detector (e1_baseline),test,A05,200.0,0.01,-0.32,94.0
+e1_baseline,Selected detector (e1_baseline),test,A06,200.0,0.13,-0.16,74.5
+e1_baseline,Selected detector (e1_baseline),test,A07,200.0,0.43,0.24,21.0
+e1_baseline,Selected detector (e1_baseline),test,A08,200.0,0.33,0.1066666666666666,57.99999999999999
+e1_baseline,Selected detector (e1_baseline),test,A09,200.0,0.085,-0.2199999999999999,52.0
+e1_baseline,Selected detector (e1_baseline),test,all,1800.0,0.1638888888888889,-0.1148148148148148,67.27777777777779
+csp_lda,CSP + LDA,test,A01,200.0,0.865,0.82,0.0
+csp_lda,CSP + LDA,test,A02,200.0,0.365,0.1533333333333333,0.0
+csp_lda,CSP + LDA,test,A03,200.0,0.815,0.7533333333333333,0.0
+csp_lda,CSP + LDA,test,A04,200.0,0.725,0.6333333333333333,0.0
+csp_lda,CSP + LDA,test,A05,200.0,0.43,0.24,0.0
+csp_lda,CSP + LDA,test,A06,200.0,0.625,0.5,0.0
+csp_lda,CSP + LDA,test,A07,200.0,0.72,0.6266666666666666,0.0
+csp_lda,CSP + LDA,test,A08,200.0,0.94,0.92,0.0
+csp_lda,CSP + LDA,test,A09,200.0,0.975,0.9666666666666668,0.0
+csp_lda,CSP + LDA,test,all,1800.0,0.7177777777777777,0.6237037037037036,0.0

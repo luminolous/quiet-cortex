@@ -1,0 +1,4 @@
+run_id,method,split,n_groups,accuracy,kappa,no_decision_pct
+e1_baseline,Selected detector (e1_baseline),test,1800.0,0.1638888888888889,-0.1148148148148148,67.27777777777779
+threshold,Threshold detector,test,1800.0,0.2027777777777777,-0.0629629629629629,68.16666666666666
+csp_lda,CSP + LDA,test,1800.0,0.7177777777777777,0.6237037037037036,0.0

@@ -104,6 +104,16 @@ def extract_epochs(data: np.ndarray, sfreq: float, cue_onsets: np.ndarray,
     return np.stack([data[:, s:s + n] for s in start])
 
 
+def add_white_noise(epochs: np.ndarray, snr_db: float, rng: np.random.Generator) -> np.ndarray:
+    """Gaussian white noise per epoch and channel at a given SNR (CONCEPT §7.3).
+
+    P_noise = P_signal / 10^(SNR / 10), with P_signal the mean power of that epoch and channel.
+    """
+    p_signal = (epochs ** 2).mean(axis=-1, keepdims=True)
+    sd = np.sqrt(p_signal / 10 ** (snr_db / 10))
+    return epochs + rng.standard_normal(epochs.shape) * sd
+
+
 def laplacian(epochs: np.ndarray, ch_names: list[str], neighbors: dict[str, list[str]]) -> np.ndarray:
     """Small Laplacian x_c - mean(x_neighbors) for PANEL_ORDER channels -> (n, 5, n_times)."""
     idx = {ch: i for i, ch in enumerate(ch_names)}

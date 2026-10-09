@@ -88,11 +88,12 @@ def predict_yolo(weights: str | Path, data_yaml: str | Path, split: str, imgsz: 
     model = YOLO(str(weights))
     out = {}
     paths = [str(p) for p in split_images(data_yaml, split, limit)]
-    for r in model.predict(source=paths, imgsz=imgsz, conf=0.001, iou=0.7, max_det=100, batch=16, stream=True,
-                           verbose=False):
-        b = r.boxes
-        out[Path(r.path).stem] = {"boxes": b.xyxy.cpu().numpy().astype(float), "scores": b.conf.cpu().numpy(),
-                                  "labels": b.cls.cpu().numpy().astype(int)}
+    # A list source is inferred as one batch (the `batch` argument is ignored), so feed chunks of 16.
+    for i in range(0, len(paths), 16):
+        for r in model.predict(source=paths[i:i + 16], imgsz=imgsz, conf=0.001, iou=0.7, max_det=100, verbose=False):
+            b = r.boxes
+            out[Path(r.path).stem] = {"boxes": b.xyxy.cpu().numpy().astype(float), "scores": b.conf.cpu().numpy(),
+                                      "labels": b.cls.cpu().numpy().astype(int)}
     return out
 
 
@@ -290,7 +291,7 @@ def evaluate_run(run_id: str, split: str, predict: bool, run_cfg: dict[str, Any]
     """Predict (optional), evaluate, and update results/tables (all_runs, per_class_ap, confusion, decoding)."""
     data_yaml = resolve(run_cfg["data"])
     classes = list(load_config(data_yaml)["names"].values())
-    run_dir = resolve("results/runs") / run_id
+    run_dir = resolve("results/runs") / run_cfg.get("weights_run", run_id)
     if predict:
         if run_cfg["model"] == "frcnn":
             preds = predict_frcnn(run_dir / "best.pt", data_yaml, split)
@@ -351,6 +352,95 @@ def e1_table() -> pd.DataFrame:
     return t
 
 
+E2_RUNS = {"threshold": "Threshold (label rule, reference)", "e1_baseline": "YOLO11n (best E1)",
+           "e2_yolo11s": "YOLO11s", "e2_frcnn": "Faster R-CNN (ResNet50-FPN v2)"}
+
+
+def e2_table() -> pd.DataFrame:
+    """E2 table: test metrics per architecture; the best detector is chosen on validation mAP@0.5."""
+    runs = pd.read_csv(resolve("results/tables/all_runs.csv"))
+    test = runs[runs["split"] == "test"].set_index("run_id")
+    val = runs[runs["split"] == "val"].set_index("run_id")
+    t = test.reindex(list(E2_RUNS))[["map50", "map50_95", "precision", "recall", "f1", "onset_err_ms",
+                                      "offset_err_ms", "flow_err_hz", "fhigh_err_hz", "train_time_min"]]
+    t.insert(0, "model", [E2_RUNS[r] for r in t.index])
+    t["val_map50"] = val["map50"].reindex(t.index)
+    t["val_map50_95"] = val["map50_95"].reindex(t.index)
+    detectors = t.drop(index="threshold")
+    best = detectors.sort_values(["val_map50", "val_map50_95"], ascending=False).index[0]
+    t["selected"] = t.index == best
+    t = t.reset_index()
+    t.to_csv(resolve("results/tables/e2_architecture.csv"), index=False)
+    return t
+
+
+SNRS = [10, 5, 0]
+
+
+def e4_evaluate(best_run: str) -> None:
+    """Evaluate the selected detector and the threshold detector on every noisy test set (E4)."""
+    cfg = load_config(f"configs/experiments/{best_run}.yaml")
+    for snr in SNRS:
+        data = f"configs/data_5class_snr{snr}.yaml"
+        evaluate_run(f"{best_run}_snr{snr}", "test", True, dict(cfg, data=data, experiment="E4", weights_run=best_run))
+        evaluate_run(f"threshold_snr{snr}", "test", False,
+                     {"run_id": f"threshold_snr{snr}", "experiment": "E4", "model": "threshold", "data": data})
+
+
+def selected_detector() -> str:
+    return pd.read_csv(resolve("results/tables/e2_architecture.csv")).query("selected")["run_id"].iloc[0]
+
+
+def e3_table() -> pd.DataFrame:
+    """E3: AP of ERD_C4 and ERD_C3 on test, 2-class vs 5-class (selected model and threshold reference)."""
+    best = selected_detector()
+    ap = pd.read_csv(resolve("results/tables/per_class_ap.csv"))
+    ap = ap[(ap["split"] == "test") & ap["class_name"].isin(["ERD_C4", "ERD_C3"])]
+    rows = []
+    for setting, run in (("5 classes", best), ("2 classes", "e3_2class"), ("5 classes", "threshold"),
+                         ("2 classes", "threshold_2class")):
+        a = ap[ap["run_id"] == run].set_index("class_name")
+        if a.empty:
+            log.warning("E3: %s not evaluated on test yet", run)
+            continue
+        rows.append({"setting": setting, "run_id": run, "ap50_ERD_C4": a.loc["ERD_C4", "ap50"],
+                     "ap50_ERD_C3": a.loc["ERD_C3", "ap50"], "ap50_95_ERD_C4": a.loc["ERD_C4", "ap50_95"],
+                     "ap50_95_ERD_C3": a.loc["ERD_C3", "ap50_95"]})
+    t = pd.DataFrame(rows)
+    t.to_csv(resolve("results/tables/e3_classes.csv"), index=False)
+    return t
+
+
+def e4_table() -> pd.DataFrame:
+    """E4: test mAP@0.5 (and mAP@0.5:0.95) per SNR for the selected detector and the threshold detector."""
+    best = selected_detector()
+    runs = pd.read_csv(resolve("results/tables/all_runs.csv"))
+    runs = runs[runs["split"] == "test"].set_index("run_id")
+    rows = []
+    for name, base in (("Threshold detector", "threshold"), (f"Selected detector ({best})", best)):
+        row = {"model": name}
+        for snr, run in [("clean", base)] + [(f"{s} dB", f"{base}_snr{s}") for s in SNRS]:
+            row[f"map50_{snr}"] = runs["map50"].get(run, float("nan"))
+            row[f"map50_95_{snr}"] = runs["map50_95"].get(run, float("nan"))
+        rows.append(row)
+    t = pd.DataFrame(rows)
+    t.to_csv(resolve("results/tables/e4_robustness.csv"), index=False)
+    return t
+
+
+def e5_table() -> pd.DataFrame:
+    """E5: group decoding on test (selected detector, threshold detector, CSP + LDA), overall and per subject."""
+    best = selected_detector()
+    dec = pd.read_csv(resolve("results/tables/decoding_by_subject.csv"))
+    names = {best: f"Selected detector ({best})", "threshold": "Threshold detector", "csp_lda": "CSP + LDA"}
+    dec = dec[(dec["split"] == "test") & dec["run_id"].isin(list(names))].copy()
+    dec.insert(1, "method", dec["run_id"].map(names))
+    dec.to_csv(resolve("results/tables/e5_decoding_per_subject.csv"), index=False)
+    overall = dec[dec["subject"] == "all"].drop(columns=["subject"]).set_index("run_id").reindex(list(names)).reset_index()
+    overall.to_csv(resolve("results/tables/e5_decoding.csv"), index=False)
+    return overall
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run", help="run_id (configs/experiments/<run_id>.yaml)")
@@ -358,15 +448,19 @@ def main() -> None:
     parser.add_argument("--predict", action="store_true", help="run inference with the run's best weights first")
     parser.add_argument("--config", help="experiment config (default: configs/experiments/<run>.yaml)")
     parser.add_argument("--notes", default="")
-    parser.add_argument("--table", choices=["e1"], help="derive an experiment table from all_runs.csv")
+    tables = {"e1": e1_table, "e2": e2_table, "e3": e3_table, "e4": e4_table, "e5": e5_table}
+    parser.add_argument("--e4", metavar="RUN", help="evaluate RUN and the threshold detector on the noisy test sets")
+    parser.add_argument("--table", choices=list(tables), help="derive an experiment table from results/tables")
     args = parser.parse_args()
 
     setup_logging()
     if args.run:
         cfg = load_config(args.config or f"configs/experiments/{args.run}.yaml")
         evaluate_run(args.run, args.split, args.predict, cfg, args.notes)
-    if args.table == "e1":
-        log.info("E1 (val):\n%s", e1_table().to_string(index=False))
+    if args.e4:
+        e4_evaluate(args.e4)
+    if args.table:
+        log.info("%s:\n%s", args.table.upper(), tables[args.table]().to_string(index=False))
 
 
 if __name__ == "__main__":
